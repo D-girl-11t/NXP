@@ -22,6 +22,8 @@ that driver, adds i.MX93 device trees, and ships capture helpers.
 There is **no hardware ISP** on i.MX93. Captures are Bayer RAW. Colour images
 come from the demosaic tool or ffmpeg, not from `/dev/video0` as YUYV.
 
+**Hands-on walkthrough (laptop + board):** [docs/bringup-steps.md](docs/bringup-steps.md)
+
 ## Hardware
 
 1. i.MX93 11x11 EVK or FRDM-i.MX93 running NXP linux-imx (**lf-6.6.y** is the
