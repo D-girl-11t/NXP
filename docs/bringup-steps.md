@@ -9,6 +9,8 @@ Work happens in **two places**:
 
 You do **not** edit the Raspberry Pi `imx519.c` on GitHub. You copy the ported driver from this repo into NXP’s kernel tree.
 
+**On a Windows PC:** do not follow the Linux `picocom` / `/dev/ttyUSB0` commands below. Use [windows.md](windows.md) (PuTTY + WSL2) instead.
+
 ---
 
 ## 0. What must be plugged in
