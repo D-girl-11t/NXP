@@ -26,6 +26,8 @@ come from the demosaic tool or ffmpeg, not from `/dev/video0` as YUYV.
 
 **Windows PC:** [docs/windows.md](docs/windows.md) — PuTTY on COMx + WSL2 to build the kernel. You cannot compile linux-imx in PowerShell.
 
+**Dual-boot Ubuntu:** ignore the Windows doc. Use [docs/bringup-steps.md](docs/bringup-steps.md) on the Linux side.
+
 ## Hardware
 
 1. i.MX93 11x11 EVK or FRDM-i.MX93 running NXP linux-imx (**lf-6.6.y** is the

@@ -11,6 +11,8 @@ You do **not** edit the Raspberry Pi `imx519.c` on GitHub. You copy the ported d
 
 **On a Windows PC:** do not follow the Linux `picocom` / `/dev/ttyUSB0` commands below. Use [windows.md](windows.md) (PuTTY + WSL2) instead.
 
+**Dual-boot (Windows + Ubuntu):** boot Ubuntu and follow this file as written. Skip WSL and PuTTY. Use `picocom` on `/dev/ttyUSB0` or `/dev/ttyACM0`, and copy `Image` / `.dtb` with a normal SD-card mount.
+
 ---
 
 ## 0. What must be plugged in
