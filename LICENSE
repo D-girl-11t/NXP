@@ -1,0 +1,12 @@
+GNU GENERAL PUBLIC LICENSE
+Version 2, June 1991
+
+This repository contains a port of the Arducam/Raspberry Pi IMX519 V4L2
+driver, which is licensed under GPL-2.0.
+
+The complete GPL-2.0 text is available from:
+https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html
+
+Kernel driver: kernel/imx519.c  (GPL-2.0)
+Device trees:  GPL-2.0
+Scripts:       GPL-2.0

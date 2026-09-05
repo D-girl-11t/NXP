@@ -1,0 +1,16 @@
+config VIDEO_IMX519
+	tristate "Sony / Arducam IMX519 sensor support"
+	depends on I2C && VIDEO_DEV
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  V4L2 sub-device driver for the Sony IMX519 16MP Bayer sensor
+	  used on the Arducam 16MP autofocus camera (B0371 and similar).
+
+	  On NXP i.MX93 the sensor is wired to the 2-lane MIPI CSI-2
+	  receiver and ISI. The ISI is limited to 2K horizontal, so the
+	  driver exposes 1920x1080 and 1280x720 by default.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called imx519.

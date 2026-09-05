@@ -1,0 +1,119 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * i.MX93 11x11 EVK + Arducam IMX519 16MP autofocus (MIPI CSI-2).
+ *
+ * Replaces the stock AP1302 ISP camera on the MiniSAS CSI connector.
+ * Use an RPi-CAM to MiniSAS adapter (NXP XRPi-CAM-MiniSAS or equivalent).
+ *
+ * Build with linux-imx:
+ *   dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-imx519.dtb
+ *
+ * Boot:
+ *   setenv fdtfile imx93-11x11-evk-imx519.dtb
+ */
+#include "imx93-11x11-evk.dts"
+
+/ {
+	model = "NXP i.MX93 11x11 EVK with Arducam IMX519";
+	compatible = "fsl,imx93-11x11-evk-imx519", "fsl,imx93-11x11-evk",
+		     "fsl,imx93";
+
+	/*
+	 * Arducam B0371 has an onboard 24 MHz crystal. A dummy clock is
+	 * enough for the driver; route CCM_CLKO to the connector only if
+	 * your adapter actually feeds INCK from the SoC.
+	 */
+	clk_imx519_24m: clock-imx519-24m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "imx519_xclk";
+	};
+
+	/*
+	 * Digital core (1.05 V) is generated on the camera module.
+	 * Keep a dummy regulator so the driver can probe.
+	 */
+	reg_imx519_vdig: regulator-imx519-vdig {
+		compatible = "regulator-fixed";
+		regulator-name = "imx519_vdig";
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1050000>;
+		regulator-always-on;
+	};
+};
+
+&isi_0 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+};
+
+&cameradev {
+	status = "okay";
+};
+
+/*
+ * 408 MHz CSI-2 clock lane => 816 Mbps/lane DDR.
+ * i.MX93 DPHY HSFREQRANGE table: 800 Mbps = 0x09, 850 Mbps = 0x19.
+ * cfg-clk-range = 28 matches a 24 MHz CFGCLK (same as the EVK AP1302 node).
+ *
+ * linux-imx lf-6.12+ programs HSFREQRANGE from V4L2_CID_LINK_FREQ and
+ * ignores these two properties. Leave them for lf-6.1 / lf-6.6.
+ */
+&mipi_csi {
+	status = "okay";
+
+	port {
+		mipi_csi_ep: endpoint {
+			remote-endpoint = <&imx519_ep>;
+			data-lanes = <2>;
+			cfg-clk-range = <28>;
+			hs-clk-range = <0x19>;
+			bus-type = <4>; /* MEDIA_BUS_TYPE_CSI2_DPHY */
+		};
+	};
+};
+
+&lpi2c3 {
+	/delete-node/ ap1302_mipi@3c;
+
+	imx519: imx519@1a {
+		compatible = "sony,imx519";
+		reg = <0x1a>;
+		status = "okay";
+
+		clocks = <&clk_imx519_24m>;
+		clock-names = "xclk";
+
+		/* MiniSAS camera reset, same GPIO the EVK used for AP1302. */
+		reset-gpios = <&adp5585gpio 0 GPIO_ACTIVE_LOW>;
+
+		VANA-supply = <&reg_avdd_2v8>;	/* 2.8 V analog / module 3.3 V rail */
+		VDIG-supply = <&reg_imx519_vdig>;
+		VDDL-supply = <&reg_vddio_1v8>;	/* 1.8 V I/O */
+
+		rotation = <0>;
+		orientation = <2>;
+
+		port {
+			imx519_ep: endpoint {
+				remote-endpoint = <&mipi_csi_ep>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies = /bits/ 64 <408000000>;
+			};
+		};
+	};
+
+	/* Arducam 16MP AF voice-coil (AK7375) on the same CSI I2C bus. */
+	ak7375: ak7375@c {
+		compatible = "asahi-kasei,ak7375";
+		reg = <0x0c>;
+		status = "okay";
+		vdd-supply = <&reg_avdd_2v8>;
+	};
+};

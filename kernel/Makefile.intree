@@ -1,0 +1,4 @@
+# Drop this line into drivers/media/i2c/Makefile when building in-tree:
+# obj-$(CONFIG_VIDEO_IMX519) += imx519.o
+
+obj-$(CONFIG_VIDEO_IMX519) += imx519.o

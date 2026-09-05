@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * FRDM-IMX93 + Arducam IMX519 16MP autofocus.
+ *
+ * Uses the MiniSAS CSI connector. An RPi-CAM to MiniSAS adapter is required
+ * (NXP documents XRPi-CAM-MiniSAS for the OV5640 example).
+ */
+#include "imx93-11x11-frdm.dts"
+
+/ {
+	model = "NXP FRDM-i.MX93 with Arducam IMX519";
+	compatible = "fsl,imx93-11x11-frdm-imx519", "fsl,imx93-11x11-frdm",
+		     "fsl,imx93";
+
+	clk_imx519_24m: clock-imx519-24m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "imx519_xclk";
+	};
+
+	reg_imx519_vdig: regulator-imx519-vdig {
+		compatible = "regulator-fixed";
+		regulator-name = "imx519_vdig";
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1050000>;
+		regulator-always-on;
+	};
+
+	reg_imx519_vana: regulator-imx519-vana {
+		compatible = "regulator-fixed";
+		regulator-name = "imx519_vana";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		regulator-always-on;
+	};
+
+	reg_imx519_vddl: regulator-imx519-vddl {
+		compatible = "regulator-fixed";
+		regulator-name = "imx519_vddl";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+};
+
+&isi_0 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+};
+
+&cameradev {
+	status = "okay";
+};
+
+&mipi_csi {
+	status = "okay";
+
+	port {
+		mipi_csi_ep: endpoint {
+			remote-endpoint = <&imx519_ep>;
+			data-lanes = <2>;
+			cfg-clk-range = <28>;
+			hs-clk-range = <0x19>;
+			bus-type = <4>;
+		};
+	};
+};
+
+&lpi2c3 {
+	/delete-node/ ap1302_mipi@3c;
+
+	imx519: imx519@1a {
+		compatible = "sony,imx519";
+		reg = <0x1a>;
+		status = "okay";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_imx519_pwdn>;
+
+		clocks = <&clk_imx519_24m>;
+		clock-names = "xclk";
+
+		reset-gpios = <&pcal6524 22 GPIO_ACTIVE_LOW>;
+		/* Optional powerdown if the adapter routes CAM_GPIO here. */
+		/* powerdown-gpios = <&gpio4 28 GPIO_ACTIVE_HIGH>; */
+
+		VANA-supply = <&reg_imx519_vana>;
+		VDIG-supply = <&reg_imx519_vdig>;
+		VDDL-supply = <&reg_imx519_vddl>;
+
+		rotation = <0>;
+		orientation = <2>;
+
+		port {
+			imx519_ep: endpoint {
+				remote-endpoint = <&mipi_csi_ep>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies = /bits/ 64 <408000000>;
+			};
+		};
+	};
+
+	ak7375: ak7375@c {
+		compatible = "asahi-kasei,ak7375";
+		reg = <0x0c>;
+		status = "okay";
+		vdd-supply = <&reg_imx519_vana>;
+	};
+};
+
+&iomuxc {
+	pinctrl_imx519_pwdn: imx519_pwdn_grp {
+		fsl,pins = <
+			MX93_PAD_CCM_CLKO3__GPIO4_IO28	0x31e
+		>;
+	};
+};

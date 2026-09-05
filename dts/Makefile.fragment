@@ -1,0 +1,4 @@
+# Add to arch/arm64/boot/dts/freescale/Makefile next to the other i.MX93 dtbs:
+
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-imx519.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-frdm-imx519.dtb
