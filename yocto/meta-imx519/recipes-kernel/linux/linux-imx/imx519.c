@@ -125,13 +125,9 @@
 #define IMX519_TEST_PATTERN_B_DEFAULT	0
 #define IMX519_TEST_PATTERN_GB_DEFAULT	0
 
-/* Embedded metadata stream structure */
-#define IMX519_EMBEDDED_LINE_WIDTH (5820 * 3)
-#define IMX519_NUM_EMBEDDED_LINES 1
-
+/* i.MX93 CSI/ISI is a single image stream (no Unicam embedded-data pad). */
 enum pad_types {
 	IMAGE_PAD,
-	METADATA_PAD,
 	NUM_PADS
 };
 
@@ -1258,25 +1254,15 @@ static int imx519_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	struct imx519 *imx519 = to_imx519(sd);
 	struct v4l2_mbus_framefmt *try_fmt_img =
 		imx519_state_format(sd, fh->state, IMAGE_PAD);
-	struct v4l2_mbus_framefmt *try_fmt_meta =
-		imx519_state_format(sd, fh->state, METADATA_PAD);
 	struct v4l2_rect *try_crop;
 
 	mutex_lock(&imx519->mutex);
 
-	/* Initialize try_fmt for the image pad (ISI-safe default on i.MX93). */
 	try_fmt_img->width = imx519_default_mode()->width;
 	try_fmt_img->height = imx519_default_mode()->height;
 	try_fmt_img->code = imx519_get_format_code(imx519);
 	try_fmt_img->field = V4L2_FIELD_NONE;
 
-	/* Initialize try_fmt for the embedded metadata pad */
-	try_fmt_meta->width = IMX519_EMBEDDED_LINE_WIDTH;
-	try_fmt_meta->height = IMX519_NUM_EMBEDDED_LINES;
-	try_fmt_meta->code = MEDIA_BUS_FMT_SENSOR_DATA;
-	try_fmt_meta->field = V4L2_FIELD_NONE;
-
-	/* Initialize try_crop */
 	try_crop = imx519_state_crop(sd, fh->state, IMAGE_PAD);
 	try_crop->left = IMX519_PIXEL_ARRAY_LEFT;
 	try_crop->top = IMX519_PIXEL_ARRAY_TOP;
@@ -1410,20 +1396,15 @@ static int imx519_enum_mbus_code(struct v4l2_subdev *sd,
 {
 	struct imx519 *imx519 = to_imx519(sd);
 
-	if (code->pad >= NUM_PADS)
+	if (code->pad != IMAGE_PAD)
 		return -EINVAL;
 
-	if (code->pad == IMAGE_PAD) {
-		if (code->index > 0)
-			return -EINVAL;
+	if (code->index > 0)
+		return -EINVAL;
 
-		code->code = imx519_get_format_code(imx519);
-	} else {
-		if (code->index > 0)
-			return -EINVAL;
-
-		code->code = MEDIA_BUS_FMT_SENSOR_DATA;
-	}
+	mutex_lock(&imx519->mutex);
+	code->code = imx519_get_format_code(imx519);
+	mutex_unlock(&imx519->mutex);
 
 	return 0;
 }
@@ -1434,10 +1415,10 @@ static int imx519_enum_frame_size(struct v4l2_subdev *sd,
 {
 	struct imx519 *imx519 = to_imx519(sd);
 
-	if (fse->pad >= NUM_PADS)
+	if (fse->pad != IMAGE_PAD)
 		return -EINVAL;
 
-	if (fse->pad == IMAGE_PAD) {
+	{
 		const struct imx519_mode *mode = imx519_mode_by_index(fse->index);
 
 		if (!mode)
@@ -1449,14 +1430,6 @@ static int imx519_enum_frame_size(struct v4l2_subdev *sd,
 		fse->min_width = mode->width;
 		fse->max_width = fse->min_width;
 		fse->min_height = mode->height;
-		fse->max_height = fse->min_height;
-	} else {
-		if (fse->code != MEDIA_BUS_FMT_SENSOR_DATA || fse->index > 0)
-			return -EINVAL;
-
-		fse->min_width = IMX519_EMBEDDED_LINE_WIDTH;
-		fse->max_width = fse->min_width;
-		fse->min_height = IMX519_NUM_EMBEDDED_LINES;
 		fse->max_height = fse->min_height;
 	}
 
@@ -1483,21 +1456,13 @@ static void imx519_update_image_pad_format(struct imx519 *imx519,
 	imx519_reset_colorspace(&fmt->format);
 }
 
-static void imx519_update_metadata_pad_format(struct v4l2_subdev_format *fmt)
-{
-	fmt->format.width = IMX519_EMBEDDED_LINE_WIDTH;
-	fmt->format.height = IMX519_NUM_EMBEDDED_LINES;
-	fmt->format.code = MEDIA_BUS_FMT_SENSOR_DATA;
-	fmt->format.field = V4L2_FIELD_NONE;
-}
-
 static int imx519_get_pad_format(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_format *fmt)
 {
 	struct imx519 *imx519 = to_imx519(sd);
 
-	if (fmt->pad >= NUM_PADS)
+	if (fmt->pad != IMAGE_PAD)
 		return -EINVAL;
 
 	mutex_lock(&imx519->mutex);
@@ -1505,20 +1470,12 @@ static int imx519_get_pad_format(struct v4l2_subdev *sd,
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		struct v4l2_mbus_framefmt *try_fmt =
 			imx519_state_format(&imx519->sd, sd_state, fmt->pad);
-		/* update the code which could change due to vflip or hflip: */
-		try_fmt->code = fmt->pad == IMAGE_PAD ?
-				imx519_get_format_code(imx519) :
-				MEDIA_BUS_FMT_SENSOR_DATA;
+
+		try_fmt->code = imx519_get_format_code(imx519);
 		fmt->format = *try_fmt;
 	} else {
-		if (fmt->pad == IMAGE_PAD) {
-			imx519_update_image_pad_format(imx519, imx519->mode,
-						       fmt);
-			fmt->format.code =
-			       imx519_get_format_code(imx519);
-		} else {
-			imx519_update_metadata_pad_format(fmt);
-		}
+		imx519_update_image_pad_format(imx519, imx519->mode, fmt);
+		fmt->format.code = imx519_get_format_code(imx519);
 	}
 
 	mutex_unlock(&imx519->mutex);
@@ -1579,33 +1536,22 @@ static int imx519_set_pad_format(struct v4l2_subdev *sd,
 	const struct imx519_mode *mode;
 	struct imx519 *imx519 = to_imx519(sd);
 
-	if (fmt->pad >= NUM_PADS)
+	if (fmt->pad != IMAGE_PAD)
 		return -EINVAL;
 
 	mutex_lock(&imx519->mutex);
 
-	if (fmt->pad == IMAGE_PAD) {
-		/* Bayer order varies with flips */
-		fmt->format.code = imx519_get_format_code(imx519);
+	fmt->format.code = imx519_get_format_code(imx519);
 
-		mode = imx519_find_mode(fmt->format.width, fmt->format.height);
-		imx519_update_image_pad_format(imx519, mode, fmt);
-		if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-			framefmt = imx519_state_format(sd, sd_state, fmt->pad);
-			*framefmt = fmt->format;
-		} else {
-			imx519->mode = mode;
-			imx519->fmt_code = fmt->format.code;
-			imx519_set_framing_limits(imx519);
-		}
+	mode = imx519_find_mode(fmt->format.width, fmt->format.height);
+	imx519_update_image_pad_format(imx519, mode, fmt);
+	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+		framefmt = imx519_state_format(sd, sd_state, fmt->pad);
+		*framefmt = fmt->format;
 	} else {
-		if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-			framefmt = imx519_state_format(sd, sd_state, fmt->pad);
-			*framefmt = fmt->format;
-		} else {
-			/* Only one embedded data mode is supported */
-			imx519_update_metadata_pad_format(fmt);
-		}
+		imx519->mode = mode;
+		imx519->fmt_code = fmt->format.code;
+		imx519_set_framing_limits(imx519);
 	}
 
 	mutex_unlock(&imx519->mutex);
@@ -2235,7 +2181,6 @@ static int imx519_probe(struct i2c_client *client,
 
 	/* Initialize source pads */
 	imx519->pad[IMAGE_PAD].flags = MEDIA_PAD_FL_SOURCE;
-	imx519->pad[METADATA_PAD].flags = MEDIA_PAD_FL_SOURCE;
 
 	ret = media_entity_pads_init(&imx519->sd.entity, NUM_PADS, imx519->pad);
 	if (ret) {
