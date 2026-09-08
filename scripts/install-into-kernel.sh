@@ -52,19 +52,28 @@ if ! grep -q 'imx519.o' "$MK"; then
 	echo "Added imx519.o to $MK"
 fi
 
-cp -v "$ROOT/dts/imx93-11x11-evk-imx519.dts" "$DTS/"
+# EVK DTB: 6.12+ uses mipi_csi_in; lf-6.6 uses isi_0 / cameradev.
+EVK_SRC="$ROOT/dts/imx93-11x11-evk-imx519.dts"
+if [ -f "$DTS/imx93-11x11-evk.dts" ] && grep -q 'isi_0' "$DTS/imx93-11x11-evk.dts"; then
+	EVK_SRC="$ROOT/dts/imx93-11x11-evk-imx519-lf66.dts"
+fi
+if [ -f "$DTS/imx93-11x11-evk.dts" ]; then
+	cp -v "$EVK_SRC" "$DTS/imx93-11x11-evk-imx519.dts"
+fi
+
 if [ -f "$DTS/imx93-11x11-frdm.dts" ]; then
 	cp -v "$ROOT/dts/imx93-11x11-frdm-imx519.dts" "$DTS/"
 else
 	echo "Note: imx93-11x11-frdm.dts not in this tree; skipped FRDM DTB"
 fi
 
-if ! grep -q 'imx93-11x11-evk-imx519.dtb' "$DTMK"; then
+if [ -f "$DTS/imx93-11x11-evk-imx519.dts" ] && ! grep -q 'imx93-11x11-evk-imx519.dtb' "$DTMK"; then
 	printf '\ndtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-imx519.dtb\n' >> "$DTMK"
-	if [ -f "$DTS/imx93-11x11-frdm.dts" ]; then
-		printf 'dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-frdm-imx519.dtb\n' >> "$DTMK"
-	fi
-	echo "Added IMX519 dtb targets to $DTMK"
+	echo "Added imx93-11x11-evk-imx519.dtb"
+fi
+if [ -f "$DTS/imx93-11x11-frdm-imx519.dts" ] && ! grep -q 'imx93-11x11-frdm-imx519.dtb' "$DTMK"; then
+	printf 'dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-frdm-imx519.dtb\n' >> "$DTMK"
+	echo "Added imx93-11x11-frdm-imx519.dtb"
 fi
 
 mkdir -p "$KSRC/arch/arm64/configs"
@@ -79,4 +88,4 @@ echo "  make imx_v8_defconfig"
 echo "  ./scripts/kconfig/merge_config.sh -m .config arch/arm64/configs/imx519.config"
 echo "  make olddefconfig"
 echo "  make -j\$(nproc) Image dtbs modules"
-echo "  # boot with fdtfile=imx93-11x11-evk-imx519.dtb"
+echo "  # boot FRDM with fdtfile=imx93-11x11-frdm-imx519.dtb"

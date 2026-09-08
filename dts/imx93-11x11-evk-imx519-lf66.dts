@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * i.MX93 11x11 EVK + Arducam IMX519, linux-imx lf-6.12 / lf-6.18.
- *
- * Replaces AP1302 on MiniSAS CSI. Needs an RPi-CAM to MiniSAS adapter.
- *
- * Boot:
- *   setenv fdtfile imx93-11x11-evk-imx519.dtb
+ * i.MX93 11x11 EVK + IMX519 for linux-imx lf-6.1 / lf-6.6 (isi_0 + cameradev).
+ * install-into-kernel.sh copies this as imx93-11x11-evk-imx519.dts on those trees.
  */
 #include "imx93-11x11-evk.dts"
 
@@ -13,6 +9,13 @@
 	model = "NXP i.MX93 11x11 EVK with Arducam IMX519";
 	compatible = "fsl,imx93-11x11-evk-imx519", "fsl,imx93-11x11-evk",
 		     "fsl,imx93";
+
+	clk_imx519_24m: clock-imx519-24m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "imx519_xclk";
+	};
 
 	reg_imx519_vdig: regulator-imx519-vdig {
 		compatible = "regulator-fixed";
@@ -23,11 +26,30 @@
 	};
 };
 
-/* 6.12+ CSI graph: imx519 -> mipi_csi_in -> mipi_csi_out -> isi_in */
-&mipi_csi_in {
-	remote-endpoint = <&imx519_ep>;
-	data-lanes = <1 2>;
-	clock-lanes = <0>;
+&isi_0 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+};
+
+&cameradev {
+	status = "okay";
+};
+
+&mipi_csi {
+	status = "okay";
+
+	port {
+		mipi_csi_ep: endpoint {
+			remote-endpoint = <&imx519_ep>;
+			data-lanes = <2>;
+			cfg-clk-range = <28>;
+			hs-clk-range = <0x19>;
+			bus-type = <4>;
+		};
+	};
 };
 
 &lpi2c3 {
@@ -38,22 +60,19 @@
 		reg = <0x1a>;
 		status = "okay";
 
-		clocks = <&clk IMX93_CLK_24M>;
+		clocks = <&clk_imx519_24m>;
 		clock-names = "xclk";
-
-		reset-gpios = <&adp5585 0 GPIO_ACTIVE_LOW>;
-
+		reset-gpios = <&adp5585gpio 0 GPIO_ACTIVE_LOW>;
 		VANA-supply = <&reg_avdd_2v8>;
 		VDIG-supply = <&reg_imx519_vdig>;
 		VDDL-supply = <&reg_vddio_1v8>;
-
 		rotation = <0>;
 		orientation = <2>;
 		lens-focus = <&ak7375>;
 
 		port {
 			imx519_ep: endpoint {
-				remote-endpoint = <&mipi_csi_in>;
+				remote-endpoint = <&mipi_csi_ep>;
 				clock-lanes = <0>;
 				data-lanes = <1 2>;
 				clock-noncontinuous;
