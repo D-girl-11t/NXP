@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * FRDM-IMX93 + Arducam IMX519 16MP autofocus.
+ * FRDM-i.MX93 + Arducam IMX519, for linux-imx lf-6.18.2-1.0.0
+ * (hostname imx93-11x11-lpddr4x-frdm, uname 6.18.2-1.0.0-g*).
  *
- * Uses the MiniSAS CSI connector. An RPi-CAM to MiniSAS adapter is required
- * (NXP documents XRPi-CAM-MiniSAS for the OV5640 example).
+ * Replaces the stock AP1302 MiniSAS camera. Needs an RPi-CAM to MiniSAS adapter.
+ *
+ * Boot:
+ *   setenv fdtfile imx93-11x11-frdm-imx519.dtb
  */
 #include "imx93-11x11-frdm.dts"
 
@@ -12,13 +15,6 @@
 	compatible = "fsl,imx93-11x11-frdm-imx519", "fsl,imx93-11x11-frdm",
 		     "fsl,imx93";
 
-	clk_imx519_24m: clock-imx519-24m {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <24000000>;
-		clock-output-names = "imx519_xclk";
-	};
-
 	reg_imx519_vdig: regulator-imx519-vdig {
 		compatible = "regulator-fixed";
 		regulator-name = "imx519_vdig";
@@ -26,48 +22,13 @@
 		regulator-max-microvolt = <1050000>;
 		regulator-always-on;
 	};
-
-	reg_imx519_vana: regulator-imx519-vana {
-		compatible = "regulator-fixed";
-		regulator-name = "imx519_vana";
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2800000>;
-		regulator-always-on;
-	};
-
-	reg_imx519_vddl: regulator-imx519-vddl {
-		compatible = "regulator-fixed";
-		regulator-name = "imx519_vddl";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		regulator-always-on;
-	};
 };
 
-&isi_0 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&cameradev {
-	status = "okay";
-};
-
-&mipi_csi {
-	status = "okay";
-
-	port {
-		mipi_csi_ep: endpoint {
-			remote-endpoint = <&imx519_ep>;
-			data-lanes = <2>;
-			cfg-clk-range = <28>;
-			hs-clk-range = <0x19>;
-			bus-type = <4>;
-		};
-	};
+/* 6.18 CSI graph: imx519 -> mipi_csi_in -> mipi_csi_out -> isi_in */
+&mipi_csi_in {
+	remote-endpoint = <&imx519_ep>;
+	data-lanes = <1 2>;
+	clock-lanes = <0>;
 };
 
 &lpi2c3 {
@@ -78,26 +39,22 @@
 		reg = <0x1a>;
 		status = "okay";
 
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_imx519_pwdn>;
-
-		clocks = <&clk_imx519_24m>;
+		clocks = <&clk IMX93_CLK_24M>;
 		clock-names = "xclk";
 
+		/* Same CAM reset GPIO the 6.18 FRDM DTS uses for AP1302. */
 		reset-gpios = <&pcal6524 22 GPIO_ACTIVE_LOW>;
-		/* Optional powerdown if the adapter routes CAM_GPIO here. */
-		/* powerdown-gpios = <&gpio4 28 GPIO_ACTIVE_HIGH>; */
 
-		VANA-supply = <&reg_imx519_vana>;
+		VANA-supply = <&reg_avdd_2v8>;
 		VDIG-supply = <&reg_imx519_vdig>;
-		VDDL-supply = <&reg_imx519_vddl>;
+		VDDL-supply = <&reg_vddio_1v8>;
 
 		rotation = <0>;
 		orientation = <2>;
 
 		port {
 			imx519_ep: endpoint {
-				remote-endpoint = <&mipi_csi_ep>;
+				remote-endpoint = <&mipi_csi_in>;
 				clock-lanes = <0>;
 				data-lanes = <1 2>;
 				clock-noncontinuous;
@@ -110,14 +67,6 @@
 		compatible = "asahi-kasei,ak7375";
 		reg = <0x0c>;
 		status = "okay";
-		vdd-supply = <&reg_imx519_vana>;
-	};
-};
-
-&iomuxc {
-	pinctrl_imx519_pwdn: imx519_pwdn_grp {
-		fsl,pins = <
-			MX93_PAD_CCM_CLKO3__GPIO4_IO28	0x31e
-		>;
+		vdd-supply = <&reg_avdd_2v8>;
 	};
 };

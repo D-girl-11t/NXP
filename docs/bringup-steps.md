@@ -68,14 +68,25 @@ uname -r
 
 Example output: `6.6.52-lts`. You want linux-imx from the same BSP (lf-6.6.y if you see 6.6.x).
 
-**If you do not already have linux-imx** (Yocto downloads or an NXP BSP tarball):
+**Your board (from `uname -r`):** FRDM-i.MX93 on **linux-imx lf-6.18.2-1.0.0**.
+Do not clone `lf-6.6.y`. Use the commands in section 2b for 6.18.
+
+On the laptop:
 
 ```bash
 cd ~
-git clone -b lf-6.6.52-2.2.0 https://github.com/nxp-imx/linux-imx.git
+git clone -b lf-6.18.2-1.0.0 https://github.com/nxp-imx/linux-imx.git
+cd ~/imx519-imx93
+./scripts/install-into-kernel.sh ~/linux-imx
 ```
 
-If clone by tag fails, pick a `lf-6.6*` branch from https://github.com/nxp-imx/linux-imx/branches — stay on 6.6 if `uname -r` is 6.6.x.
+U-Boot later:
+
+```
+setenv fdtfile imx93-11x11-frdm-imx519.dtb
+saveenv
+boot
+```
 
 **If you already have it** (common with Yocto):
 
