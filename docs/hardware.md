@@ -53,9 +53,40 @@ CSI-2 link frequency is **408 MHz** (816 Mbps/lane DDR), which is under the
 
 ## Connector
 
-NXP EVK/FRDM CSI is MiniSAS, not a Raspberry Pi 22-pin camera connector.
-You need an adapter such as **XRPi-CAM-MiniSAS** (the same one NXP documents
-for OV5640 on FRDM-i.MX93).
+### FRDM-i.MX93: use P6, not P7
+
+The board has **two identical-looking 22-pin FPC connectors** (UM12181,
+tables 3, 20, 21):
+
+| Connector | Interface | Use |
+| --- | --- | --- |
+| **P6** | MIPI CSI-2, 2 data lanes | **camera** (RPi-CAM-MIPI) |
+| P7 | MIPI DSI, 4 data lanes | display only (Waveshare 7", etc.) |
+
+Both carry 3.3 V on pin 22 and I2C3 (`USB_I2C_SCL`/`SDA`) on pins 20/21, so
+a camera in P7 looks plausible and is completely dead. Two pins differ:
+
+| Pin | P6 (CSI) | P7 (DSI) |
+| --- | --- | --- |
+| 17 | `CSI_nRST` — PCAL6524 **P2_6** | `CTP_RST` — PCAL6524 P2_1 |
+| 18 | `CAM_MCLK` (24 MHz from CCM_CLKO3) | `DSI_CTP_nINT` |
+
+In P7 the IMX519 gets **no master clock** and is **never released from
+reset**, so it cannot ACK at `0x1a` even though it is powered. `i2cdetect`
+shows `--` and the driver never reports a chip-id error, because it does not
+get that far.
+
+PCAL6524 numbering: `P2_6` = 16 + 6 = **GPIO 22**, which is what the FRDM DTS
+uses (`reset-gpios = <&pcal6524 22 GPIO_ACTIVE_LOW>`).
+
+### Adapter
+
+NXP EVK/FRDM CSI is not a Raspberry Pi 22-pin camera socket at the module
+end. You need an adapter such as **XRPi-CAM-MiniSAS** / RPI-CAM-MIPI (the
+same one NXP documents for OV5640 and AP1302 on FRDM-i.MX93).
+
+Inspect the FFC itself. Tears or holes in the flex break individual traces —
+often the I2C or MCLK lines — and produce the same silent failure.
 
 The Arducam B0371 module has:
 

@@ -21,8 +21,10 @@ You do **not** edit the Raspberry Pi `imx519.c` on GitHub. You copy the ported d
 2. **Debug UART** from the board to the laptop (USB debug / micro-USB console). This is how you see U-Boot and Linux.
    - EVK: typically `/dev/ttyUSB0` or `/dev/ttyACM0` at **115200 8N1**.
 3. **Ethernet** (or USB gadget SSH) so you can copy files after first boot. Optional if you only use a serial console and an SD card.
-4. **Camera**: Arducam IMX519 (22-pin Pi cable) → **RPi-CAM to MiniSAS adapter** → **MiniSAS CSI** on the i.MX93.
+4. **Camera**: Arducam IMX519 (22-pin Pi cable) → **RPi-CAM to MiniSAS adapter** → **CSI** on the i.MX93.
    - The CSI connector on the EVK is **not** a Raspberry Pi camera socket. Without the adapter the sensor will never appear on I2C.
+   - **FRDM-i.MX93 has two identical 22-pin FPC sockets. Use P6 (MIPI CSI), not P7 (MIPI DSI).** P7 powers the module and passes I2C but gives it no 24 MHz `CAM_MCLK` and never releases `CSI_nRST`, so `i2cdetect` stays empty. See [hardware.md](hardware.md).
+   - Check the flex cable for tears. A broken trace fails the same silent way.
 
 Power off when seating the CSI cable. Contacts face the way the stock AP1302 module did.
 

@@ -109,10 +109,35 @@ i2c-probe.sh 2
 
 ## `i2cdetect` shows `--` at 0x1a / 0x0c
 
-The IMX519 stays in reset (`reset-gpios` / XCLR) until the driver probes.
-`2-001a` in `/sys/bus/i2c/devices/` only means the device-tree node exists.
-Scan again **after** a matching `imx519.ko` loads. `UU` at 0x50/0x53 is
-unrelated (other drivers).
+First check the connector. On **FRDM-i.MX93 the camera goes in P6**, the
+MIPI CSI FPC connector. P7 is MIPI DSI (display) and looks identical. P7
+still supplies 3.3 V and I2C3, but pin 18 is `DSI_CTP_nINT` instead of
+`CAM_MCLK` and pin 17 is `CTP_RST` instead of `CSI_nRST`, so the sensor has
+no 24 MHz clock and is never released from reset. It cannot ACK. See
+[hardware.md](hardware.md).
+
+Then check the flex cable for tears — a broken I2C or MCLK trace looks the
+same from software.
+
+Otherwise: the IMX519 stays in reset (`reset-gpios` / XCLR) until the driver
+probes. `2-001a` in `/sys/bus/i2c/devices/` only means the device-tree node
+exists. Scan again **after** a matching `imx519.ko` loads. `UU` at 0x50/0x53
+is unrelated (other drivers).
+
+## `modprobe imx519` succeeds but nothing probes
+
+No chip-id message and no error at all means the driver registered but never
+bound. Check, in this order:
+
+```bash
+lsmod | grep imx519
+ls /sys/bus/i2c/drivers/imx519/          # 2-001a here = bound
+mount -t debugfs none /sys/kernel/debug 2>/dev/null
+cat /sys/kernel/debug/devices_deferred   # waiting on regulator/clock/GPIO
+```
+
+A camera in P7 instead of P6 also produces silence, because the driver can
+bind and still read nothing without MCLK.
 
 ## Graph has AP1302 instead of IMX519
 
