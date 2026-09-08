@@ -48,7 +48,20 @@ else
 fi
 echo
 
-echo "If dmesg says 'disagrees about version of symbol', depmod cannot fix it."
-echo "The .ko was compiled against a different .config / Module.symvers than"
-echo "${KVER}. Rebuild with scripts/build-module-on-target.sh, or replace"
-echo "FAT Image + /lib/modules with one matching build (see docs/troubleshooting.md)."
+KO_VER="$(modinfo "$KO" | awk -F': *' '/^vermagic:/ {print $2}')"
+IN_VER=""
+if [ -n "$INTREE" ]; then
+	IN_VER="$(modinfo "$INTREE" | awk -F': *' '/^vermagic:/ {print $2}')"
+fi
+if [ -n "$IN_VER" ] && [ "$KO_VER" != "$IN_VER" ]; then
+	echo "MISMATCH: imx519.ko vermagic does not match in-tree modules."
+	echo "  extra:  $KO_VER"
+	echo "  intree: $IN_VER"
+	echo "This FRDM image has no /build headers — replace FAT Image + modules."
+	echo "See docs/troubleshooting.md (zcat /proc/config.gz, then"
+	echo "scripts/rebuild-image-from-running-config.sh)."
+else
+	echo "If dmesg says 'disagrees about version of symbol', depmod cannot fix it."
+	echo "Rebuild with scripts/build-module-on-target.sh, or replace FAT Image."
+	echo "See docs/troubleshooting.md."
+fi

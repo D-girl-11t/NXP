@@ -101,6 +101,11 @@ sudo depmod -a
 sudo modprobe imx519
 ```
 
+If `/lib/modules/$(uname -r)/build` is missing (stock FRDM image), export
+`/proc/config.gz` and rebuild **Image + modules** on the laptop with
+`scripts/rebuild-image-from-running-config.sh`. Details:
+[docs/troubleshooting.md](docs/troubleshooting.md).
+
 ### Option C — Yocto
 
 ```bash
