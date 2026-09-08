@@ -56,7 +56,7 @@ Your Windows files are visible inside WSL as `/mnt/c/...`. Prefer keeping the ke
 
 ```bash
 cd ~
-git clone <this-repo-url> imx519-imx93
+git clone <this-repo-url> imx519-nxp-link
 
 # Match the kernel on the board (after it boots: uname -r). Example:
 git clone -b lf-6.6.52-2.2.0 https://github.com/nxp-imx/linux-imx.git
@@ -69,7 +69,7 @@ If you already have an NXP BSP / Yocto checkout on `C:\`, copy it into WSL or cl
 ## D. WSL — what to change (this is the driver work)
 
 ```bash
-cd ~/imx519-imx93
+cd ~/imx519-nxp-link
 ./scripts/install-into-kernel.sh ~/linux-imx
 ```
 
@@ -140,7 +140,7 @@ Options:
    sudo cp /mnt/c/imx519-out/Image /mnt/sdboot/
    sudo cp /mnt/c/imx519-out/imx93-11x11-evk-imx519.dtb /mnt/sdboot/
    sudo mkdir -p /mnt/sdroot/home/root/imx519
-   sudo cp -a ~/imx519-imx93/scripts /mnt/sdroot/home/root/imx519/
+   sudo cp -a ~/imx519-nxp-link/scripts /mnt/sdroot/home/root/imx519/
    # install modules into the rootfs
    cd ~/linux-imx
    sudo make ARCH=arm64 INSTALL_MOD_PATH=/mnt/sdroot modules_install

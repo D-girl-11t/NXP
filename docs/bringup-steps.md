@@ -41,20 +41,41 @@ If that port is busy, try `/dev/ttyACM0`. You should see U-Boot or a Linux login
 
 ## 2. On the laptop — put the camera driver into NXP’s kernel
 
-You need **two folders** on the laptop. Step 2 is only: copy from folder A into folder B.
+You need **two folders** on the laptop. Step 2 only copies files from A into B.
 
 ```
-Folder A  imx519-imx93/     this project (driver + DTS + scripts)
-Folder B  linux-imx/        NXP’s kernel source (what actually boots the board)
+Folder A  the IMX519-for-i.MX93 project from this Cursor chat
+          (look for README.md, kernel/imx519.c, dts/, scripts/)
+
+Folder B  NXP linux-imx  —  https://github.com/nxp-imx/linux-imx
+          (the kernel that actually boots the board)
 ```
 
-The board cannot use folder A by itself. Linux on i.MX93 is built from folder B. The script copies our IMX519 files into folder B so the next `make` includes the camera.
+Folder A is **not** any of these:
+
+- https://github.com/raspberrypi/linux  (Pi kernel; that is where the original `imx519.c` came from)
+- https://github.com/nxp-imx/linux-imx  (that is folder B)
+- Arducam’s GitHub
+
+The board cannot boot folder A by itself. The script copies our driver and DTB into folder B so the next `make` includes the camera.
 
 ### 2a. Folder A — this project
 
-If you already have this repo (it contains `README.md`, `kernel/imx519.c`, and `scripts/`), that folder **is** folder A. `cd` into it.
+Folder A is **this tree**: the files sitting next to `docs/bringup-steps.md`. You are in the right place if these exist:
 
-If you still need it, clone or copy it to your home directory and call it `imx519-imx93`.
+```
+README.md
+kernel/imx519.c
+dts/imx93-11x11-frdm-imx519.dts
+scripts/install-into-kernel.sh
+```
+
+On the laptop, `cd` into that directory (whatever you named the clone or copy). Example:
+
+```bash
+cd ~/imx519-nxp-link          # or wherever you saved this project
+ls README.md kernel/imx519.c scripts/install-into-kernel.sh
+```
 
 ### 2b. Folder B — NXP kernel (`linux-imx`)
 
@@ -76,7 +97,7 @@ On the laptop:
 ```bash
 cd ~
 git clone -b lf-6.18.2-1.0.0 https://github.com/nxp-imx/linux-imx.git
-cd ~/imx519-imx93
+cd ~/imx519-nxp-link
 ./scripts/install-into-kernel.sh ~/linux-imx
 ```
 
@@ -107,7 +128,7 @@ ls ~/linux-imx/drivers/media/i2c
 Replace the path with **your** folder B. Example: kernel cloned as `~/linux-imx`.
 
 ```bash
-cd ~/imx519-imx93
+cd ~/imx519-nxp-link
 ./scripts/install-into-kernel.sh ~/linux-imx
 ```
 
@@ -193,7 +214,7 @@ sudo make ARCH=arm64 INSTALL_MOD_PATH=/mnt/root modules_install
 sudo umount /mnt/boot /mnt/root
 ```
 
-Also copy this repo’s `scripts/` folder onto the rootfs, e.g. `/home/root/imx519-imx93/scripts`.
+Also copy this repo’s `scripts/` folder onto the rootfs, e.g. `/home/root/imx519-nxp-link/scripts`.
 
 Put the SD card back in the board.
 
@@ -248,7 +269,7 @@ i2cdetect -y 2
 You want `1a` on that scan. If it is `--`, the adapter/reset/cable is wrong — do not debug software yet.
 
 ```bash
-cd /home/root/imx519-imx93   # wherever you copied the scripts
+cd /home/root/imx519-nxp-link   # wherever you copied the scripts
 ./scripts/setup-pipeline.sh 1920 1080
 ./scripts/capture-still.sh shot.raw
 ./scripts/capture-video.sh 60 clip.raw
