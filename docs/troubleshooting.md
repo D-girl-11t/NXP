@@ -8,67 +8,89 @@ imx519: Unknown symbol _dev_info (err -22)
 imx519: disagrees about version of symbol i2c_register_driver
 ```
 
-`depmod -a` cannot fix this. The `.ko` on the board was compiled against a
-**different kernel ABI** than `uname -r` (different `.config` and
-`Module.symvers` CRCs). Typical cause: laptop `make imx_v8_defconfig` while
-the FRDM still runs the **Yocto** kernel `6.18.2-1.0.0-gf49f45233f7b`.
+`depmod -a` cannot fix this. The `.ko` was compiled against a **different
+kernel ABI** than the `Image` that is running.
 
-DTB can be correct at the same time. `ls /sys/bus/i2c/devices/` showing
-`2-001a` and `2-000c` means the overlay is live; only the module is wrong.
+On FRDM this shows up as two different vermagic strings:
 
-On the board:
-
-```bash
-# confirm mismatch (vermagic / srcversion vs any in-tree .ko)
-/path/to/imx519-nxp-link/scripts/check-ko-abi.sh
-
-modinfo /lib/modules/$(uname -r)/extra/imx519.ko | grep vermagic
-modinfo $(find /lib/modules/$(uname -r)/kernel -name '*.ko' | head -1) | grep vermagic
+```
+imx519.ko:   6.18.2-gf49f45233f7b-dirty SMP preempt mod_unload modversions aarch64
+in-tree .ko: 6.18.2-1.0.0-gf49f45233f7b SMP preempt mod_unload modversions aarch64
 ```
 
-### Fix A — rebuild the module on the board (best if headers exist)
+`-dirty` means the laptop linux-imx tree had local edits. `-1.0.0` is
+Yocto `CONFIG_LOCALVERSION`. With `CONFIG_MODVERSIONS=y` the loader then
+rejects symbol CRCs (`disagrees about version of symbol`).
+
+`ls /lib/modules/$(uname -r)/build` missing means this image has **no
+kernel headers**. You cannot rebuild `imx519.ko` on the board. Keep the
+IMX519 DTB; replace **`Image` and modules together**.
+
+DTB can be correct at the same time (`2-001a` / `2-000c` in
+`/sys/bus/i2c/devices/`).
+
+### Fix — replace `Image` (no `/build` on the board)
+
+**1. On the board** — export the running config and copy it off (zmodem,
+USB, whatever you used for the DTB):
 
 ```bash
-ls /lib/modules/$(uname -r)/build
-# if that directory exists:
+zcat /proc/config.gz > /tmp/running.config
+ls -l /tmp/running.config
+grep LOCALVERSION /tmp/running.config
+# sz /tmp/running.config     # if you use lrzsz on serial
+```
+
+If `/proc/config.gz` is missing, this BSP was built without
+`CONFIG_IKCONFIG_PROC`; you then need the `.config` from the Yocto build
+that produced `gf49f45233f7b`.
+
+**2. On the laptop** — same linux-imx tag as the board (`lf-6.18.2-1.0.0`):
+
+```bash
+cd ~/imx519-nxp-link
+./scripts/install-into-kernel.sh ~/linux-imx
+./scripts/rebuild-image-from-running-config.sh ~/linux-imx /path/to/running.config
+```
+
+(`imx_v8_defconfig` is the wrong starting point if you intend to keep the
+stock Yocto `Image`.)
+
+**3. On the board** — overwrite FAT `Image` the same way you overwrote
+`imx93-11x11-frdm.dtb` (U-Boot already loads that filename):
+
+```bash
+ls /run/media/boot-mmcblk0p1/Image
+cp /run/media/boot-mmcblk0p1/Image /run/media/boot-mmcblk0p1/Image.before-imx519
+cp /path/to/new/Image /run/media/boot-mmcblk0p1/Image
+sync
+```
+
+Install the new modules into the rootfs (`make INSTALL_MOD_PATH=...
+modules_install` with the card mounted on the laptop, or copy
+`drivers/media/i2c/imx519.ko` plus the rest of `/lib/modules/<new-uname>/`
+if `uname -r` changes, e.g. gains `-dirty`). Reboot, then:
+
+```bash
+uname -r
+modprobe imx519
+dmesg | grep -i imx519 | tail -20
+i2cdetect -y 2
+```
+
+Do not mix stock `Image` with a laptop-built `.ko`. A `-dirty` uname after
+this reboot is fine as long as the `.ko` came from that same build.
+
+### If `/lib/modules/$(uname -r)/build` exists (headers present)
+
+Then you can rebuild only the module on the board:
+
+```bash
 cd /path/to/imx519-nxp-link
 ./scripts/build-module-on-target.sh
 ```
 
-Needs `gcc`, `make`, and `kernel-devsrc` (or an equivalent
-`/lib/modules/$(uname -r)/build` with `Module.symvers`). Then:
-
-```bash
-dmesg | grep -i imx519 | tail -20
-# success looks like chip-id / "imx519 2-001a"
-i2cdetect -y 2
-# 1a and 0c may only ACK after probe releases XCLR (reset GPIO)
-```
-
-### Fix B — replace `Image` and modules together (no headers on the board)
-
-A new `imx519.ko` from `imx_v8_defconfig` will never load into the stock
-Yocto `Image`. Copy **both**:
-
-1. Extract the running config: `zcat /proc/config.gz > running.config`
-   (or `./scripts/collect-running-kernel-abi.sh` and copy the tarball off).
-2. On the laptop, in the linux-imx tree that matches the BSP tag
-   (`lf-6.18.2-1.0.0`, commit `f49f45233f7b` if that is in `uname -r`):
-
-```bash
-export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
-cp running.config .config
-# merge CONFIG_VIDEO_IMX519=m CONFIG_VIDEO_AK7375=m
-./scripts/kconfig/merge_config.sh -m .config /path/to/imx519-nxp-link/configs/imx519.cfg
-make olddefconfig
-make -j"$(nproc)" Image modules dtbs
-```
-
-3. On the FAT boot partition, replace `Image` the same way you overwrote
-   `imx93-11x11-frdm.dtb`. Install modules into the rootfs
-   `/lib/modules/<new-uname>/`. Reboot, then `modprobe imx519`.
-
-Do not mix stock `Image` with a laptop-built `.ko`.
+This FRDM demo image does not ship that directory.
 
 ## Sensor does not probe
 
