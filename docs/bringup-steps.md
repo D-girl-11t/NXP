@@ -39,49 +39,93 @@ If that port is busy, try `/dev/ttyACM0`. You should see U-Boot or a Linux login
 
 ---
 
-## 2. On the laptop — get this repo and linux-imx
+## 2. On the laptop — put the camera driver into NXP’s kernel
 
-Use the **same kernel version** as the image already on the board (`uname -r` after it boots, e.g. `6.6.52-lts`).
+You need **two folders** on the laptop. Step 2 is only: copy from folder A into folder B.
+
+```
+Folder A  imx519-imx93/     this project (driver + DTS + scripts)
+Folder B  linux-imx/        NXP’s kernel source (what actually boots the board)
+```
+
+The board cannot use folder A by itself. Linux on i.MX93 is built from folder B. The script copies our IMX519 files into folder B so the next `make` includes the camera.
+
+### 2a. Folder A — this project
+
+If you already have this repo (it contains `README.md`, `kernel/imx519.c`, and `scripts/`), that folder **is** folder A. `cd` into it.
+
+If you still need it, clone or copy it to your home directory and call it `imx519-imx93`.
+
+### 2b. Folder B — NXP kernel (`linux-imx`)
+
+This is **not** the Raspberry Pi kernel. It is NXP’s kernel.
+
+On the board (picocom login), run:
 
 ```bash
-# this project (ported driver + DTS + scripts)
-git clone <this-repo-url> imx519-imx93
-cd imx519-imx93
+uname -r
+```
 
-# NXP kernel (example: lf-6.6.y — match your BSP)
+Example output: `6.6.52-lts`. You want linux-imx from the same BSP (lf-6.6.y if you see 6.6.x).
+
+**If you do not already have linux-imx** (Yocto downloads or an NXP BSP tarball):
+
+```bash
+cd ~
 git clone -b lf-6.6.52-2.2.0 https://github.com/nxp-imx/linux-imx.git
 ```
 
-If you already have a Yocto `tmp/work-shared/.../linux-imx` or a BSP `linux-imx` folder, use **that** instead of cloning.
+If clone by tag fails, pick a `lf-6.6*` branch from https://github.com/nxp-imx/linux-imx/branches — stay on 6.6 if `uname -r` is 6.6.x.
 
----
+**If you already have it** (common with Yocto):
 
-## 3. On the laptop — what to change (and where)
-
-Run the installer (it copies files for you):
-
-```bash
-./scripts/install-into-kernel.sh /path/to/linux-imx
+```text
+~/imx-yocto-bsp/tmp/work-shared/imx93-11x11-lpddr4x-evk/kernel-source
 ```
 
-That changes **linux-imx**, not the board:
+or a folder named `linux-imx` inside the NXP BSP. That folder is folder B. Do not clone a second copy.
 
-| File in linux-imx | Change |
+Folder B is correct if this exists:
+
+```bash
+ls ~/linux-imx/drivers/media/i2c
+```
+
+### 2c. Run the copy script (the only command in “step 2”)
+
+Replace the path with **your** folder B. Example: kernel cloned as `~/linux-imx`.
+
+```bash
+cd ~/imx519-imx93
+./scripts/install-into-kernel.sh ~/linux-imx
+```
+
+`~/linux-imx` is a real path, not a name you type literally if your kernel lives somewhere else. If Yocto’s kernel is elsewhere:
+
+```bash
+./scripts/install-into-kernel.sh ~/imx-yocto-bsp/tmp/work-shared/imx93-11x11-lpddr4x-evk/kernel-source
+```
+
+You should see copy messages for `imx519.c` and the EVK `.dts`. That is success. Nothing is installed on the board yet.
+
+What the script changes **inside linux-imx**:
+
+| File in linux-imx | What happened |
 | --- | --- |
-| `drivers/media/i2c/imx519.c` | **New** — ported sensor driver |
-| `drivers/media/i2c/Kconfig` | Sources IMX519 Kconfig |
-| `drivers/media/i2c/Makefile` | `obj-$(CONFIG_VIDEO_IMX519) += imx519.o` |
-| `arch/arm64/boot/dts/freescale/imx93-11x11-evk-imx519.dts` | **New board DTB** — removes AP1302, adds IMX519 @ `0x1a` |
+| `drivers/media/i2c/imx519.c` | New camera driver |
+| `drivers/media/i2c/Makefile` | Builds `imx519.o` |
+| `arch/arm64/boot/dts/freescale/imx93-11x11-evk-imx519.dts` | New board file (IMX519 instead of AP1302) |
 | `arch/arm64/boot/dts/freescale/Makefile` | Builds `imx93-11x11-evk-imx519.dtb` |
-| `.config` | `CONFIG_VIDEO_IMX519=m` and `CONFIG_VIDEO_AK7375=m` |
 
-If your board is **FRDM-i.MX93**, use `dts/imx93-11x11-frdm-imx519.dts` the same way (copy next to the other FRDM dts files).
+If the board is **FRDM-i.MX93**, also copy `dts/imx93-11x11-frdm-imx519.dts` into that same `freescale/` directory.
 
-**Do not** keep using `imx93-11x11-evk.dtb`. That DTB still describes the AP1302 ISP camera, so Linux will never probe IMX519.
+**Do not** keep using `imx93-11x11-evk.dtb`. That DTB still describes AP1302.
+
+Next is **step 3** (compile). You have not flashed anything yet.
 
 ---
 
-## 4. On the laptop — build
+## 3. On the laptop — build
 
 You need an aarch64 cross toolchain (Ubuntu):
 
@@ -90,7 +134,7 @@ sudo apt install gcc-aarch64-linux-gnu bc bison flex libssl-dev device-tree-comp
 ```
 
 ```bash
-cd /path/to/linux-imx
+cd ~/linux-imx
 export ARCH=arm64
 export CROSS_COMPILE=aarch64-linux-gnu-
 
@@ -114,7 +158,7 @@ Outputs you will copy:
 
 ---
 
-## 5. Copy onto the SD card (still on the laptop)
+## 4. Copy onto the SD card (still on the laptop)
 
 Put the EVK SD card in the laptop (or mount the board’s eMMC partitions if you boot from eMMC).
 
@@ -144,7 +188,7 @@ Put the SD card back in the board.
 
 ---
 
-## 6. On the board — tell U-Boot to use the new DTB
+## 5. On the board — tell U-Boot to use the new DTB
 
 Power on, hit a key in picocom to stop at `=>`.
 
@@ -176,7 +220,7 @@ The DTB file must exist in the same directory U-Boot already loads `imx93-11x11-
 
 ---
 
-## 7. On the board — load driver and capture
+## 6. On the board — load driver and capture
 
 Login (NXP images often `root` with no password).
 
