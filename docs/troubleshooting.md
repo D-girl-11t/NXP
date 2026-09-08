@@ -126,15 +126,36 @@ is unrelated (other drivers).
 
 ## `modprobe imx519` succeeds but nothing probes
 
-No chip-id message and no error at all means the driver registered but never
-bound. Check, in this order:
+`modprobe` exits 0, `lsmod` lists the module, and dmesg has no chip-id line
+and no error. The module registered but the device never got a probe call.
 
 ```bash
 lsmod | grep imx519
 ls /sys/bus/i2c/drivers/imx519/          # 2-001a here = bound
 mount -t debugfs none /sys/kernel/debug 2>/dev/null
-cat /sys/kernel/debug/devices_deferred   # waiting on regulator/clock/GPIO
+cat /sys/kernel/debug/devices_deferred
 ```
+
+On FRDM the usual answer is a deferred-probe chain:
+
+```
+regulator-vddo  platform: supplier 2-0034 not ready
+2-001a  i2c: supplier regulator-vddo not ready
+```
+
+`2-0034` is `adp5585_isp`, an ADP5585 I/O expander that lives on **NXP's
+AP1302 camera module**, gating `AVDD_2V8` / `VDDIO_1V8` / `DVDD`. With the
+Arducam plugged in instead, that expander never ACKs, its regulators never
+register, and anything using them waits forever.
+
+The fix is in this repo's FRDM DTS: the IMX519 and AK7375 nodes declare their
+own always-on `regulator-fixed` supplies (`reg_imx519_vana`, `_vdig`,
+`_vddl`) instead of borrowing `reg_avdd_2v8` / `reg_vddio_1v8`. The Arducam
+B0371 has onboard LDOs and only needs the 3.3 V that P6 pin 22 always
+provides. Rebuild the dtb if your DTS still references the stock rails.
+
+The four `regulator-*` entries stay in `devices_deferred` afterwards. That is
+harmless — they belong to the camera module you are not using.
 
 A camera in P7 instead of P6 also produces silence, because the driver can
 bind and still read nothing without MCLK.

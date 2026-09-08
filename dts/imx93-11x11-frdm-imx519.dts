@@ -3,7 +3,8 @@
  * FRDM-i.MX93 + Arducam IMX519, for linux-imx lf-6.18.2-1.0.0
  * (hostname imx93-11x11-lpddr4x-frdm, uname 6.18.2-1.0.0-g*).
  *
- * Replaces the stock AP1302 MiniSAS camera. Needs an RPi-CAM to MiniSAS adapter.
+ * Replaces the stock AP1302 camera. The module goes on P6 (MIPI CSI), not P7
+ * (MIPI DSI): only P6 carries CAM_MCLK and CSI_nRST.
  *
  * Boot:
  *   setenv fdtfile imx93-11x11-frdm-imx519.dtb
@@ -15,11 +16,37 @@
 	compatible = "fsl,imx93-11x11-frdm-imx519", "fsl,imx93-11x11-frdm",
 		     "fsl,imx93";
 
+	/*
+	 * The Arducam B0371 carries its own LDOs and runs off the 3.3 V that
+	 * P6 pin 22 (DSI&CAM_3V3) supplies unconditionally, so model all three
+	 * rails as always-on fixed regulators.
+	 *
+	 * Do not reuse the stock reg_avdd_2v8 / reg_vddio_1v8: those are gated
+	 * by adp5585_isp at I2C 0x34, which sits on NXP's AP1302 camera module.
+	 * With that module absent the expander never probes and the sensor is
+	 * stuck in deferred probe ("supplier regulator-vddo not ready").
+	 */
+	reg_imx519_vana: regulator-imx519-vana {
+		compatible = "regulator-fixed";
+		regulator-name = "imx519_vana";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		regulator-always-on;
+	};
+
 	reg_imx519_vdig: regulator-imx519-vdig {
 		compatible = "regulator-fixed";
 		regulator-name = "imx519_vdig";
 		regulator-min-microvolt = <1050000>;
 		regulator-max-microvolt = <1050000>;
+		regulator-always-on;
+	};
+
+	reg_imx519_vddl: regulator-imx519-vddl {
+		compatible = "regulator-fixed";
+		regulator-name = "imx519_vddl";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
 };
@@ -42,12 +69,12 @@
 		clocks = <&clk IMX93_CLK_24M>;
 		clock-names = "xclk";
 
-		/* Same CAM reset GPIO the 6.18 FRDM DTS uses for AP1302. */
+		/* CSI_nRST on P6 pin 17 = PCAL6524 P2_6 = line 22. */
 		reset-gpios = <&pcal6524 22 GPIO_ACTIVE_LOW>;
 
-		VANA-supply = <&reg_avdd_2v8>;
+		VANA-supply = <&reg_imx519_vana>;
 		VDIG-supply = <&reg_imx519_vdig>;
-		VDDL-supply = <&reg_vddio_1v8>;
+		VDDL-supply = <&reg_imx519_vddl>;
 
 		rotation = <0>;
 		orientation = <2>;
@@ -68,6 +95,6 @@
 		compatible = "asahi-kasei,ak7375";
 		reg = <0x0c>;
 		status = "okay";
-		vdd-supply = <&reg_avdd_2v8>;
+		vdd-supply = <&reg_imx519_vana>;
 	};
 };
