@@ -30,12 +30,14 @@ come from the demosaic tool or ffmpeg, not from `/dev/video0` as YUYV.
 
 ## Hardware
 
-1. i.MX93 11x11 EVK or FRDM-i.MX93 running NXP linux-imx (**lf-6.6.y** is the
-   primary target; lf-6.1.y and lf-6.12.y notes are in
-   [docs/hardware.md](docs/hardware.md)).
-2. Arducam IMX519 16MP AF camera (Pi 22-pin).
-3. **RPi-CAM → MiniSAS adapter** (NXP XRPi-CAM-MiniSAS or equivalent). The
-   EVK CSI connector is not a Raspberry Pi camera socket.
+1. **FRDM-i.MX93** on NXP linux-imx **6.18.2** (`uname -r` like
+   `6.18.2-1.0.0-g*`, hostname `imx93-11x11-lpddr4x-frdm`) — boot
+   `imx93-11x11-frdm-imx519.dtb`.
+2. i.MX93 11x11 EVK on lf-6.6 / lf-6.12 — boot `imx93-11x11-evk-imx519.dtb`.
+   Extra BSP notes: [docs/hardware.md](docs/hardware.md).
+3. Arducam IMX519 16MP AF camera (Pi 22-pin).
+4. **RPi-CAM → MiniSAS adapter** (NXP XRPi-CAM-MiniSAS or equivalent). The
+   CSI connector is not a Raspberry Pi camera socket.
 
 ```
 IMX519  --2-lane CSI-2-->  i.MX93 CSI host  -->  ISI  -->  /dev/videoN (RG10)
@@ -58,12 +60,14 @@ make olddefconfig
 make -j"$(nproc)" Image modules dtbs
 ```
 
-Boot with:
+Boot with (**FRDM 6.18**):
 
 ```
-setenv fdtfile imx93-11x11-evk-imx519.dtb
+setenv fdtfile imx93-11x11-frdm-imx519.dtb
 saveenv
 ```
+
+EVK images use `imx93-11x11-evk-imx519.dtb` instead.
 
 Enable at least:
 
@@ -92,7 +96,7 @@ sudo modprobe imx519
 ./scripts/sync-yocto.sh
 # add yocto/meta-imx519 to BBLAYERS
 # IMAGE_INSTALL:append = " imx519-tools"
-# KERNEL_DEVICETREE:append = " freescale/imx93-11x11-evk-imx519.dtb"
+# KERNEL_DEVICETREE:append = " freescale/imx93-11x11-frdm-imx519.dtb"
 bitbake linux-imx
 ```
 
@@ -127,6 +131,7 @@ Demosaic a still (host or board, needs numpy + Pillow):
 ```bash
 pip install -r userspace/requirements.txt
 python3 userspace/raw10_to_png.py --width 1920 --height 1080 shot.raw shot.png
+# or: python3 userspace/imx519_capture.py --from-raw shot.raw --jpeg shot.jpg
 ```
 
 Typical pipeline after `setup-pipeline.sh`:
@@ -150,6 +155,7 @@ dts/                     EVK + FRDM board trees
 configs/imx519.cfg       Kernel fragment
 scripts/                 Probe, pipeline, still, video, focus, install
 userspace/raw10_to_png.py
+userspace/imx519_capture.py  JPEG + contrast AF helper
 yocto/meta-imx519        Optional layer
 docs/                    Hardware limits and troubleshooting
 ```

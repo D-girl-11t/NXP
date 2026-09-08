@@ -5,6 +5,7 @@ SRC_URI:append = " \
     file://Kconfig.imx519 \
     file://imx519.cfg \
     file://imx93-11x11-evk-imx519.dts \
+    file://imx93-11x11-frdm-imx519.dts \
 "
 
 do_configure:prepend() {
@@ -23,6 +24,15 @@ do_configure:prepend() {
     if ! grep -q 'imx93-11x11-evk-imx519.dtb' ${S}/arch/arm64/boot/dts/freescale/Makefile; then
         echo 'dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-imx519.dtb' \
             >> ${S}/arch/arm64/boot/dts/freescale/Makefile
+    fi
+
+    if [ -f ${WORKDIR}/imx93-11x11-frdm-imx519.dts ]; then
+        install -m 0644 ${WORKDIR}/imx93-11x11-frdm-imx519.dts \
+            ${S}/arch/arm64/boot/dts/freescale/imx93-11x11-frdm-imx519.dts
+        if ! grep -q 'imx93-11x11-frdm-imx519.dtb' ${S}/arch/arm64/boot/dts/freescale/Makefile; then
+            echo 'dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-frdm-imx519.dtb' \
+                >> ${S}/arch/arm64/boot/dts/freescale/Makefile
+        fi
     fi
 }
 

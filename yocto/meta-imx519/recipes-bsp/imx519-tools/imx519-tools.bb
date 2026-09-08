@@ -10,6 +10,7 @@ SRC_URI = " \
     file://focus.sh \
     file://i2c-probe.sh \
     file://raw10_to_png.py \
+    file://imx519_capture.py \
 "
 
 S = "${WORKDIR}"
@@ -24,6 +25,7 @@ do_install() {
     install -m 0755 ${WORKDIR}/focus.sh ${D}${bindir}/imx519-focus
     install -m 0755 ${WORKDIR}/i2c-probe.sh ${D}${bindir}/imx519-i2c-probe
     install -m 0755 ${WORKDIR}/raw10_to_png.py ${D}${bindir}/imx519-raw10-to-png
+    install -m 0755 ${WORKDIR}/imx519_capture.py ${D}${bindir}/imx519-capture
 }
 
 FILES:${PN} = "${bindir}/*"

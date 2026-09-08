@@ -9,7 +9,7 @@
  * Ported for NXP i.MX93 MIPI CSI-2 + ISI (no on-chip ISP):
  *  - CSI-2 frame descriptor / mbus config for DWC CSI and the i.MX93 gasket
  *  - Default 1920x1080 / 1280x720 modes (ISI is limited to 2K horizontal)
- *  - Kernel 6.1 / 6.6 / 6.12 probe and header compatibility
+ *  - Kernel 6.1–6.18 probe, unaligned.h, and v4l2_subdev_state helpers
  */
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -24,6 +24,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/limits.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -35,6 +36,22 @@
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-mediabus.h>
 #include <media/v4l2-subdev.h>
+
+/*
+ * v4l2_subdev_get_try_format() was replaced by v4l2_subdev_state_get_format()
+ * (no subdev argument) around 6.8 and is gone on 6.18.
+ */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0)
+#define imx519_state_format(_sd, _state, _pad) \
+	v4l2_subdev_state_get_format((_state), (_pad))
+#define imx519_state_crop(_sd, _state, _pad) \
+	v4l2_subdev_state_get_crop((_state), (_pad))
+#else
+#define imx519_state_format(_sd, _state, _pad) \
+	v4l2_subdev_get_try_format((_sd), (_state), (_pad))
+#define imx519_state_crop(_sd, _state, _pad) \
+	v4l2_subdev_get_try_crop((_sd), (_state), (_pad))
+#endif
 
 #define IMX519_REG_VALUE_08BIT		1
 #define IMX519_REG_VALUE_16BIT		2
@@ -1018,12 +1035,17 @@ static const int imx519_test_pattern_val[] = {
 	IMX519_TEST_PATTERN_PN9,
 };
 
-/* regulator supplies */
+/* regulator supplies — RPi overlays use VANA, DT bindings use vana */
 static const char * const imx519_supply_name[] = {
-	/* Supplies can be enabled in any order */
 	"VANA",  /* Analog (2.8V) supply */
 	"VDIG",  /* Digital Core (1.05V) supply */
 	"VDDL",  /* IF (1.8V) supply */
+};
+
+static const char * const imx519_supply_name_lc[] = {
+	"vana",
+	"vdig",
+	"vddl",
 };
 
 #define IMX519_NUM_SUPPLIES ARRAY_SIZE(imx519_supply_name)
@@ -1235,9 +1257,9 @@ static int imx519_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct imx519 *imx519 = to_imx519(sd);
 	struct v4l2_mbus_framefmt *try_fmt_img =
-		v4l2_subdev_get_try_format(sd, fh->state, IMAGE_PAD);
+		imx519_state_format(sd, fh->state, IMAGE_PAD);
 	struct v4l2_mbus_framefmt *try_fmt_meta =
-		v4l2_subdev_get_try_format(sd, fh->state, METADATA_PAD);
+		imx519_state_format(sd, fh->state, METADATA_PAD);
 	struct v4l2_rect *try_crop;
 
 	mutex_lock(&imx519->mutex);
@@ -1255,7 +1277,7 @@ static int imx519_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	try_fmt_meta->field = V4L2_FIELD_NONE;
 
 	/* Initialize try_crop */
-	try_crop = v4l2_subdev_get_try_crop(sd, fh->state, IMAGE_PAD);
+	try_crop = imx519_state_crop(sd, fh->state, IMAGE_PAD);
 	try_crop->left = IMX519_PIXEL_ARRAY_LEFT;
 	try_crop->top = IMX519_PIXEL_ARRAY_TOP;
 	try_crop->width = IMX519_PIXEL_ARRAY_WIDTH;
@@ -1482,8 +1504,7 @@ static int imx519_get_pad_format(struct v4l2_subdev *sd,
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		struct v4l2_mbus_framefmt *try_fmt =
-			v4l2_subdev_get_try_format(&imx519->sd, sd_state,
-						   fmt->pad);
+			imx519_state_format(&imx519->sd, sd_state, fmt->pad);
 		/* update the code which could change due to vflip or hflip: */
 		try_fmt->code = fmt->pad == IMAGE_PAD ?
 				imx519_get_format_code(imx519) :
@@ -1570,8 +1591,7 @@ static int imx519_set_pad_format(struct v4l2_subdev *sd,
 		mode = imx519_find_mode(fmt->format.width, fmt->format.height);
 		imx519_update_image_pad_format(imx519, mode, fmt);
 		if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-			framefmt = v4l2_subdev_get_try_format(sd, sd_state,
-							      fmt->pad);
+			framefmt = imx519_state_format(sd, sd_state, fmt->pad);
 			*framefmt = fmt->format;
 		} else {
 			imx519->mode = mode;
@@ -1580,8 +1600,7 @@ static int imx519_set_pad_format(struct v4l2_subdev *sd,
 		}
 	} else {
 		if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-			framefmt = v4l2_subdev_get_try_format(sd, sd_state,
-							      fmt->pad);
+			framefmt = imx519_state_format(sd, sd_state, fmt->pad);
 			*framefmt = fmt->format;
 		} else {
 			/* Only one embedded data mode is supported */
@@ -1600,7 +1619,7 @@ __imx519_get_pad_crop(struct imx519 *imx519, struct v4l2_subdev_state *sd_state,
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_crop(&imx519->sd, sd_state, pad);
+		return imx519_state_crop(&imx519->sd, sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &imx519->mode->crop;
 	}
@@ -1831,9 +1850,19 @@ static int imx519_get_regulators(struct imx519 *imx519)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&imx519->sd);
 	unsigned int i;
+	int ret;
 
 	for (i = 0; i < IMX519_NUM_SUPPLIES; i++)
 		imx519->supplies[i].supply = imx519_supply_name[i];
+
+	ret = devm_regulator_bulk_get(&client->dev,
+				      IMX519_NUM_SUPPLIES,
+				      imx519->supplies);
+	if (!ret)
+		return 0;
+
+	for (i = 0; i < IMX519_NUM_SUPPLIES; i++)
+		imx519->supplies[i].supply = imx519_supply_name_lc[i];
 
 	return devm_regulator_bulk_get(&client->dev,
 				       IMX519_NUM_SUPPLIES,

@@ -97,6 +97,7 @@
 
 		rotation = <0>;
 		orientation = <2>;
+		lens-focus = <&ak7375>;
 
 		port {
 			imx519_ep: endpoint {

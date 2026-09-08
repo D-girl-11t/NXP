@@ -13,15 +13,27 @@ set -eu
 WIDTH="${1:-1920}"
 HEIGHT="${2:-1080}"
 PIXFMT="${3:-RG10}"
-MEDIA="${MEDIA:-/dev/media0}"
+MEDIA="${MEDIA:-}"
 
 if ! command -v media-ctl >/dev/null 2>&1; then
 	echo "media-ctl not found. Install v4l-utils." >&2
 	exit 1
 fi
 
-if [ ! -e "$MEDIA" ]; then
-	echo "No $MEDIA. Is the NXP camera media device probed?" >&2
+if [ -z "$MEDIA" ] || [ ! -e "$MEDIA" ] ||
+   ! media-ctl -d "$MEDIA" -p 2>/dev/null | grep -q imx519; then
+	MEDIA=""
+	for n in /dev/media*; do
+		[ -e "$n" ] || continue
+		if media-ctl -d "$n" -p 2>/dev/null | grep -q imx519; then
+			MEDIA="$n"
+			break
+		fi
+	done
+fi
+
+if [ -z "$MEDIA" ]; then
+	echo "No media device contains imx519. Check DT + modprobe imx519." >&2
 	exit 1
 fi
 
@@ -57,7 +69,9 @@ find_entity() {
 
 SENSOR="$(find_entity "imx519")"
 CSI="$(find_entity "mipi-csi2")"
+[ -n "$CSI" ] || CSI="$(find_entity "dwc-mipi|dw-csi|mipi.csi")"
 ISI="$(find_entity "mxc_isi")"
+[ -n "$ISI" ] || ISI="$(find_entity "isi")"
 
 if [ -z "$SENSOR" ]; then
 	echo "IMX519 subdev not in the graph. Check:" >&2
@@ -81,6 +95,7 @@ media-ctl -d "$MEDIA" --set-v4l2 "'${SENSOR}':0[fmt:${FMT}]"
 if [ -n "$CSI" ]; then
 	# Sink pad 0 and source pad 4 are the usual NXP DWC CSI mapping.
 	media-ctl -d "$MEDIA" --set-v4l2 "'${CSI}':0[fmt:${FMT}]" || true
+	media-ctl -d "$MEDIA" --set-v4l2 "'${CSI}':1[fmt:${FMT}]" || true
 	media-ctl -d "$MEDIA" --set-v4l2 "'${CSI}':4[fmt:${FMT}]" || true
 fi
 
@@ -120,6 +135,8 @@ if [ -n "${SUBDEV:-}" ]; then
 	echo "$SUBDEV" > /tmp/imx519-subdev
 fi
 echo "$VIDEO" > /tmp/imx519-video
+echo "$VIDEO" > /tmp/imx519-video.dev
+echo "$MEDIA" > /tmp/imx519-media.dev
 echo "$WIDTH" > /tmp/imx519-width
 echo "$HEIGHT" > /tmp/imx519-height
 
