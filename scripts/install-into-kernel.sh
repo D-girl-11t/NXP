@@ -5,9 +5,8 @@
 # Usage:
 #   ./scripts/install-into-kernel.sh /path/to/linux-imx
 #
-# Then in that tree:
-#   merge the fragment:  scripts/kconfig/merge_config.sh -m .config ../../configs/imx519.cfg
-#   or manually enable CONFIG_VIDEO_IMX519=m and CONFIG_VIDEO_AK7375=m
+# This copy of kernel/imx519.c must be the i.MX93 6.18 port (single IMAGE_PAD,
+# no MEDIA_BUS_FMT_SENSOR_DATA). An old Raspberry Pi / Unicam tree will be rejected.
 
 set -eu
 
@@ -19,13 +18,37 @@ if [ -z "$KSRC" ] || [ ! -d "$KSRC/drivers/media/i2c" ]; then
 	exit 1
 fi
 
+SRC_C="$ROOT/kernel/imx519.c"
+if [ ! -f "$SRC_C" ]; then
+	echo "Missing $SRC_C" >&2
+	exit 1
+fi
+if grep -q 'MEDIA_BUS_FMT_SENSOR_DATA' "$SRC_C"; then
+	echo "ERROR: $SRC_C is the Raspberry Pi/Unicam driver, not the i.MX93 port." >&2
+	echo "Replace kernel/imx519.c from the current Cursor project, then re-run." >&2
+	exit 1
+fi
+if ! grep -q 'i.MX93 CSI/ISI is a single image stream' "$SRC_C"; then
+	echo "ERROR: $SRC_C does not look like the i.MX93 single-pad port." >&2
+	exit 1
+fi
+
 I2C="$KSRC/drivers/media/i2c"
 DTS="$KSRC/arch/arm64/boot/dts/freescale"
 KCFG="$I2C/Kconfig"
 MK="$I2C/Makefile"
 DTMK="$DTS/Makefile"
 
-cp -v "$ROOT/kernel/imx519.c" "$I2C/imx519.c"
+strip_makefile_dtb() {
+	# $1 = Makefile, $2 = dtb name
+	if [ -f "$1" ] && grep -q "$2" "$1"; then
+		grep -v "$2" "$1" > "$1.tmp"
+		mv "$1.tmp" "$1"
+		echo "Removed $2 from $1"
+	fi
+}
+
+cp -v "$SRC_C" "$I2C/imx519.c"
 
 if ! grep -q 'VIDEO_IMX519' "$KCFG"; then
 	# Insert before the last endmenu if present, otherwise append.
@@ -67,7 +90,20 @@ else
 	echo "Note: imx93-11x11-frdm.dts not in this tree; skipped FRDM DTB"
 fi
 
-if [ -f "$DTS/imx93-11x11-evk-imx519.dts" ] && ! grep -q 'imx93-11x11-evk-imx519.dtb' "$DTMK"; then
+# FRDM 6.18: do not add the EVK overlay if it still references lf-6.6 labels
+# (isi_0 / cameradev). That target aborts `make dtbs` and is unused on FRDM.
+EVK_OK=0
+if [ -f "$DTS/imx93-11x11-evk-imx519.dts" ] && [ -f "$DTS/imx93-11x11-evk.dts" ]; then
+	if grep -qE 'isi_0|cameradev' "$DTS/imx93-11x11-evk-imx519.dts" && \
+	   ! grep -q 'isi_0' "$DTS/imx93-11x11-evk.dts"; then
+		echo "Skipping EVK dtb (overlay needs isi_0/cameradev; 6.18 EVK uses mipi_csi_in)."
+		strip_makefile_dtb "$DTMK" 'imx93-11x11-evk-imx519.dtb'
+	else
+		EVK_OK=1
+	fi
+fi
+
+if [ "$EVK_OK" = 1 ] && ! grep -q 'imx93-11x11-evk-imx519.dtb' "$DTMK"; then
 	printf '\ndtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-imx519.dtb\n' >> "$DTMK"
 	echo "Added imx93-11x11-evk-imx519.dtb"
 fi

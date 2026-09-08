@@ -14,7 +14,40 @@ zcat /proc/config.gz > /tmp/running.config
 ls -l /tmp/running.config
 ```
 
-Copy `/tmp/running.config` to the laptop, e.g. `~/running.config`.
+Copy `/tmp/running.config` to the laptop as **`~/running.config`**.
+`ls ~/running.config` must succeed before `cp`. If that file is missing,
+`merge_config.sh` keeps whatever `.config` was already in linux-imx
+(`imx_v8_defconfig`, `CONFIG_LOCALVERSION=""`). That still builds, but you
+**must replace FAT `Image` and modules** — the `.ko` will not load into the
+stock Yocto kernel.
+
+## Stale `~/imx519-nxp-link` (this is the usual failure)
+
+An old tarball still has the Raspberry Pi driver (`MEDIA_BUS_FMT_SENSOR_DATA`)
+and the lf-6.6 EVK DTS (`isi_0` / `cameradev`). That is exactly:
+
+```
+MEDIA_BUS_FMT_SENSOR_DATA undeclared
+Label or path isi_0 not found
+```
+
+On FRDM you do not need the EVK DTB. In linux-imx:
+
+```bash
+grep MEDIA_BUS_FMT_SENSOR_DATA ~/imx519-nxp-link/kernel/imx519.c && echo STALE_DRIVER
+sed -i '/imx93-11x11-evk-imx519.dtb/d' ~/linux-imx/arch/arm64/boot/dts/freescale/Makefile
+```
+
+Replace `~/imx519-nxp-link/kernel/imx519.c` with the current
+`kernel/imx519.c` from this project (2259 lines, **no** `SENSOR_DATA`,
+comment `single image stream`). Then:
+
+```bash
+cp ~/imx519-nxp-link/kernel/imx519.c ~/linux-imx/drivers/media/i2c/imx519.c
+cd ~/linux-imx
+export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+make -j"$(nproc)" Image modules dtbs
+```
 
 ## 2. On the laptop (driver already installed into linux-imx)
 
