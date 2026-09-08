@@ -1424,8 +1424,12 @@ static int imx519_enum_frame_size(struct v4l2_subdev *sd,
 		if (!mode)
 			return -EINVAL;
 
-		if (fse->code != imx519_get_format_code(imx519))
+		mutex_lock(&imx519->mutex);
+		if (fse->code != imx519_get_format_code(imx519)) {
+			mutex_unlock(&imx519->mutex);
 			return -EINVAL;
+		}
+		mutex_unlock(&imx519->mutex);
 
 		fse->min_width = mode->width;
 		fse->max_width = fse->min_width;

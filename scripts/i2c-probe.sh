@@ -15,6 +15,7 @@ fi
 echo "Scanning /dev/i2c-${BUS} (override with: $0 <bus>)"
 echo "  IMX519 sensor expected at 0x1a"
 echo "  AK7375 VCM     expected at 0x0c"
+echo "  (Both often show -- until imx519.ko probes and releases XCLR.)"
 echo
 
 i2cdetect -y "$BUS"

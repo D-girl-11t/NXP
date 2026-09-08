@@ -170,6 +170,11 @@ cd ~/linux-imx
 export ARCH=arm64
 export CROSS_COMPILE=aarch64-linux-gnu-
 
+# If you will KEEP the stock Yocto Image on the board, do NOT use
+# imx_v8_defconfig — the resulting imx519.ko will refuse to load
+# (dmesg: "disagrees about version of symbol"). Either:
+#   • copy the board's /proc/config.gz to .config, then merge IMX519, or
+#   • replace FAT Image + /lib/modules with this full build.
 make imx_v8_defconfig
 ./scripts/kconfig/merge_config.sh -m .config arch/arm64/configs/imx519.config
 make olddefconfig
@@ -262,11 +267,17 @@ dmesg | grep -i imx519
 modprobe imx519
 modprobe ak7375     # autofocus coil; OK if this fails on a no-AF module
 
+# If modprobe says Invalid argument and dmesg has
+# "disagrees about version of symbol", the .ko does not match this Image.
+# See docs/troubleshooting.md and scripts/build-module-on-target.sh.
+
 # I2C: IMX519 must ACK at 0x1a (bus is usually 2 = LPI2C3)
+# Before the driver loads, 0x1a/0x0c are often "--" (sensor still in reset).
 i2cdetect -y 2
 ```
 
-You want `1a` on that scan. If it is `--`, the adapter/reset/cable is wrong — do not debug software yet.
+After a successful probe you want `1a` (and `0c` for AF). If the module
+loaded and they stay `--`, then check the adapter/XCLR/cable.
 
 ```bash
 cd /home/root/imx519-nxp-link   # wherever you copied the scripts
@@ -298,7 +309,8 @@ i.MX93 has **no ISP**. `/dev/video0` is Bayer RAW, not a JPEG camera.
 | You see | Change this |
 | --- | --- |
 | Still `ap1302` in `dmesg` / `media-ctl -p` | Wrong DTB — step 6 (`fdtfile`) |
-| `imx519: failed to read chip id` | Cable/adapter/XCLR — step 0; `i2cdetect -y 2` |
+| `disagrees about version of symbol` / `Invalid argument` | `.ko` built against a different kernel than this `Image` — [troubleshooting](troubleshooting.md) |
+| `imx519: failed to read chip id` | Cable/adapter/XCLR — step 0; `i2cdetect -y 2` **after** the module loads |
 | `xclk frequency not supported` | DTS clock node (already 24 MHz dummy in our DTS) |
 | Stream timeout, no frames | `hs-clk-range` is `0x19` in our DTS; stock AP1302 used `0x2b` — you must use **our** DTB |
 | Want 16 MP | Not possible through i.MX93 ISI (2K width max). Stay at 1080p/720p |

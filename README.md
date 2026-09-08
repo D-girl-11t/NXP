@@ -80,7 +80,18 @@ CONFIG_VIDEO_AK7375=m
 
 ### Option B — out-of-tree module
 
-If the DTB is already on the board:
+The `.ko` must be built against the **running** kernel (`Module.symvers` +
+`.config`), not a generic `imx_v8_defconfig` tree. Otherwise `modprobe`
+fails with `Invalid argument` and dmesg shows
+`disagrees about version of symbol`.
+
+On the board, if `/lib/modules/$(uname -r)/build` exists:
+
+```bash
+./scripts/build-module-on-target.sh
+```
+
+Or by hand:
 
 ```bash
 cd kernel

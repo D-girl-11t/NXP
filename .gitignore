@@ -13,4 +13,5 @@ __pycache__/
 *.raw
 *.png
 *.mp4
+*.tar.gz
 agent-tools/
