@@ -1,8 +1,14 @@
 # IMX519 on NXP i.MX93
 
-Make the **Arducam 16MP autofocus camera** (Sony IMX519, typically SKU B0371)
-work on an **NXP i.MX93** board (11x11 EVK or FRDM) and capture stills and
-video.
+Learning and exploring Embedded Linux on the NXP i.MX 93 platform, with a focus
+on developing a Linux camera driver for the Sony IMX519 image sensor. The goal
+is to understand the V4L2 framework, device-tree integration, and camera sensor
+bring-up while working with an IMX519 sensor that is not natively supported by
+the i.MX 93 platform.
+
+Concretely: make the **Arducam 16MP autofocus camera** (Sony IMX519, typically
+SKU B0371) work on an **NXP i.MX93** board (11x11 EVK or FRDM) and capture
+stills and video.
 
 The Raspberry Pi driver at
 [`drivers/media/i2c/imx519.c`](https://github.com/raspberrypi/linux/blob/rpi-5.15.y/drivers/media/i2c/imx519.c)
