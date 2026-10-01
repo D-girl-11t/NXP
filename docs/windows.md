@@ -1,36 +1,37 @@
-# Windows laptop + i.MX93 + IMX519
+# Doing the host side from Windows
 
-You can do this from Windows. Split it like this:
+You can run this project from a Windows PC, but you **cannot** build NXP's
+`linux-imx` in PowerShell or Visual Studio. Use **WSL2** for the build and
+Windows only for the serial console and for writing the SD card.
 
-| On Windows | In WSL2 Ubuntu (required) | On the i.MX93 board |
+| On Windows | In WSL2 Ubuntu | On the board |
 | --- | --- | --- |
-| Serial console (COM port) | Patch linux-imx and **build** kernel/DTB | U-Boot `fdtfile` + capture |
-| Copy `Image` / `.dtb` / modules onto the SD card | Cross-compile `aarch64` | `modprobe imx519`, `v4l2-ctl` |
+| Serial console on a COM port | Patch `linux-imx`, cross-compile kernel, dtb and module | U-Boot `fdtfile`, `modprobe`, capture |
+| Copy `Image` and `.dtb` to the FAT partition | Everything in [build-and-flash.md](build-and-flash.md) | |
 
-You **cannot** build NXP `linux-imx` in PowerShell or Visual Studio. Use **WSL2**. The board still runs Linux; Windows is only the host.
+This document covers only the Windows-specific parts. The actual build and
+install steps are in [build-and-flash.md](build-and-flash.md) and apply
+unchanged inside WSL.
 
----
+## 1. Serial console with PuTTY
 
-## A. Windows — serial console (PuTTY)
-
-1. Power the i.MX93 from its own supply, then plug the **debug USB** into the PC.
-2. Open **Device Manager → Ports (COM & LPT)**.
-   - You want a USB serial device: `USB Serial Port (COMx)`, `MCU-LINK`, `USB-Enhanced-SERIAL`, or `USB CDC`.
-   - The EVK often shows **several** COM ports. Try the **lowest** number first, then the next.
+1. Power the board from its own supply, then plug the **debug USB** into the
+   PC.
+2. Open **Device Manager → Ports (COM & LPT)**. Look for `USB Serial Port
+   (COMx)`, `MCU-LINK`, `USB-Enhanced-SERIAL` or `USB CDC`. NXP boards often
+   expose several COM ports — try the lowest number first, then the next.
 3. Install [PuTTY](https://www.putty.org/).
-4. Session:
-   - Connection type: **Serial**
-   - Serial line: `COM5` (use **your** COMx)
-   - Speed: **115200**
-5. Open. Press Enter. You should see `=>` (U-Boot) or a Linux login.
+4. Connection type **Serial**, serial line `COMx` (yours, not literally
+   `COM5`), speed **115200**.
+5. Open and press Enter. You should see `=>` from U-Boot or a Linux login.
 
-If Device Manager has a yellow bang, install the NXP MCU-Link / MCUXpresso driver, or the FTDI VCP driver, depending on which debug chip your board uses.
+A yellow warning triangle in Device Manager means a missing driver — install
+the NXP MCU-Link / MCUXpresso driver, or the FTDI VCP driver, depending on
+which debug chip your board has.
 
-**Tera Term** is the same idea: Serial, COMx, 115200 8N1, no flow control.
+Tera Term works the same way: Serial, COMx, 115200 8N1, no flow control.
 
----
-
-## B. Windows — install WSL2 (one time)
+## 2. Install WSL2
 
 In **PowerShell as Administrator**:
 
@@ -38,9 +39,8 @@ In **PowerShell as Administrator**:
 wsl --install -d Ubuntu
 ```
 
-Reboot if Windows asks. Open **Ubuntu** from the Start menu, create a UNIX username/password.
-
-Then in that Ubuntu window:
+Reboot if prompted, then open **Ubuntu** from the Start menu and create a
+UNIX user. Inside that shell:
 
 ```bash
 sudo apt update
@@ -48,196 +48,104 @@ sudo apt install -y git build-essential gcc-aarch64-linux-gnu bc bison flex \
     libssl-dev device-tree-compiler python3
 ```
 
-Your Windows files are visible inside WSL as `/mnt/c/...`. Prefer keeping the kernel tree **inside WSL** (`~/linux-imx`) — NTFS (`/mnt/c`) is slow and can break kernel builds.
+Your Windows drives appear as `/mnt/c/...`, but **keep the kernel tree inside
+WSL** (`~/linux-imx`). NTFS through `/mnt/c` is slow and breaks kernel builds
+on file-permission and case-sensitivity issues.
 
----
+## 3. Build inside WSL
 
-## C. WSL — get this project and linux-imx
+Follow [build-and-flash.md](build-and-flash.md) from section 3 onwards,
+verbatim. Nothing about it is Linux-host-specific once you are inside WSL.
 
-```bash
-cd ~
-git clone <this-repo-url> imx519-nxp-link
-
-# Match the kernel on the board (after it boots: uname -r). Example:
-git clone -b lf-6.6.52-2.2.0 https://github.com/nxp-imx/linux-imx.git
-```
-
-If you already have an NXP BSP / Yocto checkout on `C:\`, copy it into WSL or clone fresh in `~`.
-
----
-
-## D. WSL — what to change (this is the driver work)
-
-```bash
-cd ~/imx519-nxp-link
-./scripts/install-into-kernel.sh ~/linux-imx
-```
-
-That edits **linux-imx inside WSL**, not Windows:
-
-- adds `drivers/media/i2c/imx519.c`
-- adds `arch/arm64/boot/dts/freescale/imx93-11x11-evk-imx519.dts`
-- enables `CONFIG_VIDEO_IMX519=m` / `CONFIG_VIDEO_AK7375=m` after the merge_config step below
-
-Build:
-
-```bash
-cd ~/linux-imx
-export ARCH=arm64
-export CROSS_COMPILE=aarch64-linux-gnu-
-
-make imx_v8_defconfig
-./scripts/kconfig/merge_config.sh -m .config arch/arm64/configs/imx519.config
-make olddefconfig
-grep -E 'VIDEO_IMX519|VIDEO_AK7375' .config
-make -j$(nproc) Image modules dtbs
-```
-
-When it finishes you need these files:
-
-```
-~/linux-imx/arch/arm64/boot/Image
-~/linux-imx/arch/arm64/boot/dts/freescale/imx93-11x11-evk-imx519.dtb
-```
-
-Copy them to Windows so Explorer can write the SD card:
+When the build finishes, copy the artefacts somewhere Explorer can see:
 
 ```bash
 mkdir -p /mnt/c/imx519-out
+cd ~/linux-imx
 cp arch/arm64/boot/Image /mnt/c/imx519-out/
-cp arch/arm64/boot/dts/freescale/imx93-11x11-evk-imx519.dtb /mnt/c/imx519-out/
-# modules: pack the .ko for the running kernel version
-find . -name 'imx519.ko' -o -name 'ak7375.ko'
-cp drivers/media/i2c/imx519.ko /mnt/c/imx519-out/ || true
+cp arch/arm64/boot/dts/freescale/imx93-11x11-frdm-imx519.dtb /mnt/c/imx519-out/
+cp drivers/media/i2c/imx519.ko drivers/media/i2c/ak7375.ko /mnt/c/imx519-out/
 ```
 
-On Windows that folder is `C:\imx519-out\`.
+That is `C:\imx519-out\` in Explorer.
 
----
+## 4. Write the SD card
 
-## E. Windows — copy onto the SD card
+Put the card in the PC. Windows shows the **small FAT partition** and
+ignores the Linux ext4 one — that is normal.
 
-1. Take the EVK SD card out of the board, insert it in the PC (USB reader).
-2. Windows will show a **small FAT partition** (often `BOOT`) and may ignore the Linux ext4 partition (that is normal).
+**FAT partition**, in Explorer:
 
-**FAT / BOOT partition** (you can use Explorer):
+- Back up the existing `Image`, then copy `C:\imx519-out\Image` over it.
+- Copy `imx93-11x11-frdm-imx519.dtb` next to the stock dtb.
+- Do not delete the stock dtb.
 
-- Copy `C:\imx519-out\Image` over the existing `Image` (keep a backup).
-- Copy `imx93-11x11-evk-imx519.dtb` **next to** `imx93-11x11-evk.dtb`.
-- Do **not** delete the old DTB yet.
+**ext4 rootfs** — Explorer cannot write it, so you need one of:
 
-**ext4 rootfs** (`/lib/modules`, capture scripts): Windows Explorer cannot write ext4.
-
-Options:
-
-1. **WSL** (easiest if the card is `/dev/sdX` inside WSL):
+1. **WSL**, if the reader shows up as a block device:
 
    ```bash
    lsblk
    sudo mkdir -p /mnt/sdboot /mnt/sdroot
    sudo mount /dev/sdX1 /mnt/sdboot     # FAT
-   sudo mount /dev/sdX2 /mnt/sdroot     # ext4; number may differ
-   sudo cp /mnt/c/imx519-out/Image /mnt/sdboot/
-   sudo cp /mnt/c/imx519-out/imx93-11x11-evk-imx519.dtb /mnt/sdboot/
-   sudo mkdir -p /mnt/sdroot/home/root/imx519
-   sudo cp -a ~/imx519-nxp-link/scripts /mnt/sdroot/home/root/imx519/
-   # install modules into the rootfs
+   sudo mount /dev/sdX2 /mnt/sdroot     # ext4
    cd ~/linux-imx
    sudo make ARCH=arm64 INSTALL_MOD_PATH=/mnt/sdroot modules_install
+   sudo mkdir -p /mnt/sdroot/home/root
+   sudo cp -a ~/imx519-nxp-link /mnt/sdroot/home/root/imx519
    sudo umount /mnt/sdboot /mnt/sdroot
    ```
 
-   In WSL2, `lsblk` sometimes **does not** see a USB SD reader. If so, use option 2.
+   WSL2 often does **not** see a USB SD reader through `lsblk`. If so, use
+   one of the next two options.
 
-2. **Ext2Fsd / DiskGenius / a small Ubuntu live USB**, or copy `imx519.ko` later with `scp` once the board is on Ethernet.
+2. A third-party ext4 driver (Ext2Fsd, DiskGenius) or a small Ubuntu live
+   USB.
 
-3. After first boot with the **new DTB** but **old modules**, copy the `.ko` over Ethernet:
+3. Boot with the **new dtb** and the old modules first, then copy the module
+   over Ethernet once the board is up. This is usually the least painful:
 
    ```powershell
-   scp C:\imx519-out\imx519.ko root@<board-ip>:/lib/modules/$(uname -r)/
+   scp C:\imx519-out\imx519.ko root@<board-ip>:/tmp/
    ```
 
-   On the board you would run that path after `uname -r`. Simpler: from WSL `scp` to the board IP.
+   Remember that the module must match the `Image` you installed — see
+   [the ABI section](build-and-flash.md#5-choose-a-kernel-config).
 
-Eject the SD card safely, put it back in the board.
+Eject the card safely and return it to the board.
 
----
+## 5. U-Boot and capture
 
-## F. Board — U-Boot (in PuTTY)
+Both happen in PuTTY, exactly as in
+[build-and-flash.md](build-and-flash.md#8-point-u-boot-at-the-new-device-tree)
+and [capture.md](capture.md).
 
-Power on, click inside PuTTY, mash a key to stop at `=>`:
+To convert a capture on Windows, either use WSL or install Python plus
+`numpy` natively and run the same script:
 
-```
-setenv fdtfile imx93-11x11-evk-imx519.dtb
-saveenv
-boot
-```
-
-If nothing changes, the image may use a different variable:
-
-```
-printenv fdtfile
-printenv fdt_file
-setenv fdt_file imx93-11x11-evk-imx519.dtb
-saveenv
-boot
+```powershell
+python userspace\raw10_to_png.py --width 1920 --height 1080 shot.raw shot.png
 ```
 
-FRDM board: use `imx93-11x11-frdm-imx519.dtb` instead.
-
----
-
-## G. Board — load camera and capture
-
-Still in PuTTY, login (`root`, often no password on NXP images):
-
-```bash
-dmesg | grep -i imx519
-modprobe imx519
-i2cdetect -y 2
-```
-
-You must see `1a`. Then:
-
-```bash
-cd /home/root/imx519
-./scripts/setup-pipeline.sh 1920 1080
-./scripts/capture-still.sh shot.raw
-./scripts/capture-video.sh 60 clip.raw
-```
-
-Copy the `.raw` file to Windows (USB stick, `scp`, or Samba), then in WSL or with Python on Windows:
-
-```bash
-python3 userspace/raw10_to_png.py --width 1920 --height 1080 shot.raw shot.png
-```
-
-On Windows you can `pip install numpy` and run the same script in PowerShell if Python is installed.
-
----
-
-## Quick “where do I type this?”
+## Where do I type this?
 
 | Step | Window |
 | --- | --- |
-| `COMx` 115200 | **PuTTY** |
-| `install-into-kernel.sh`, `make Image dtbs` | **Ubuntu (WSL)** |
-| Copy `Image` + `.dtb` | **Explorer** on the SD FAT partition, or WSL `mount` |
-| `setenv fdtfile ...` | **PuTTY** at U-Boot `=>` |
-| `modprobe` / capture scripts | **PuTTY** after Linux boots |
+| `COMx` at 115200 | **PuTTY** |
+| `install-into-kernel.sh`, `make Image modules dtbs` | **Ubuntu (WSL)** |
+| Copying `Image` and `.dtb` | **Explorer** on the FAT partition, or WSL `mount` |
+| `setenv fdtfile ...` | **PuTTY**, at the U-Boot `=>` prompt |
+| `modprobe`, capture scripts | **PuTTY**, after Linux boots |
 
----
-
-## If it fails on Windows specifically
+## Windows-specific failures
 
 | Problem | Fix |
 | --- | --- |
-| No COM port | Device Manager drivers; try the other USB port labeled Debug / MCU-Link |
-| Garbage in PuTTY | Wrong COM port or baud not 115200 |
-| `wsl --install` blocked | Enable Virtual Machine Platform in Windows Features |
-| Kernel build on `/mnt/c` fails | Clone `linux-imx` under `~/` in WSL, not on `C:` |
-| SD card shows only one drive | That is the FAT bootfs; use WSL to mount ext4, or scp `.ko` after boot |
-| Still seeing `ap1302` | U-Boot is still loading `imx93-11x11-evk.dtb` — step F |
-| `i2cdetect` has no `1a` | Adapter/cable, not Windows |
+| No COM port appears | Install the debug-probe driver; try the other USB port marked Debug or MCU-Link |
+| Garbage characters in PuTTY | Wrong COM port, or baud is not 115200 |
+| `wsl --install` is blocked | Enable **Virtual Machine Platform** in Windows Features |
+| Kernel build fails under `/mnt/c` | Clone `linux-imx` under `~/` inside WSL, not on `C:` |
+| SD card shows only one drive | That is the FAT boot partition; ext4 needs WSL or a third-party driver |
 
-Hardware limits (1080p max through ISI, RAW not JPEG) are unchanged: see `docs/hardware.md`.
+Everything else — ISI limits, RAW instead of JPEG, the module ABI — is not
+Windows-related. See [troubleshooting.md](troubleshooting.md).
