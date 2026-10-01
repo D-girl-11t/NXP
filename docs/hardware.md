@@ -83,21 +83,18 @@ always-on fixed regulators rather than borrowing the stock board's gated
 camera supplies — see
 [the deferred-probe problem](troubleshooting.md#modprobe-imx519-succeeds-but-nothing-probes).
 
-On the 11x11 EVK the same port reuses the AP1302 reset GPIO
-(`adp5585gpio 0`, active low) and the MiniSAS 2.8 V / 1.8 V rails.
-
 ## Connectors
 
 ### Adapter
 
-Neither the EVK nor the FRDM exposes a Raspberry Pi camera socket at the
-module end, so a Raspberry-Pi-to-NXP camera adapter is required — the same
+The FRDM board does not expose a Raspberry Pi camera socket at the module
+end, so a Raspberry-Pi-to-NXP camera adapter is required — the same
 **RPI-CAM-MIPI** / **XRPi-CAM-MiniSAS** class of board that NXP documents
 for its own OV5640 and AP1302 modules.
 
-### FRDM-i.MX93
+### Which socket
 
-The FRDM board has two 22-pin 0.5 mm FPC connectors that look identical
+The board has two 22-pin 0.5 mm FPC connectors that look identical
 (UM12181 tables 3, 20 and 21):
 
 | Connector | Interface | Purpose |
@@ -123,17 +120,12 @@ FRDM device tree uses:
 reset-gpios = <&pcal6524 22 GPIO_ACTIVE_LOW>;
 ```
 
-### i.MX93 11x11 EVK
-
-The EVK brings CSI-2 out on **J801**, a 22-pin FPC connector (Omron
-XF2M-2215-1A) with the same pin count and pitch as the FRDM's P6. The stock
-board ships an AR0144 module on it.
-
 ## BSP differences
 
-The CSI-2 receiver driver and its device-tree contract changed across NXP
-BSP releases, which is why there is an lf-6.6 device-tree variant in
-[`../dts`](../dts).
+This project targets `linux-imx` **6.18.2**, which is what the FRDM board
+runs. The CSI-2 receiver driver and its device-tree contract changed across
+earlier NXP releases, so a device tree written for one will not build against
+the other.
 
 | BSP | CSI-2 driver | `hs-clk-range` in DT |
 | --- | --- | --- |
@@ -144,8 +136,8 @@ The graph node names changed too: lf-6.6 uses `isi_0` and `cameradev`, while
 6.12 and later use `mipi_csi_in` / `mipi_csi_out` / `isi_in`. Mixing them
 produces `Label or path isi_0 not found` at `make dtbs` time.
 
-`cfg-clk-range = <28>` is the 24 MHz CFGCLK encoding the EVK AP1302 node
-uses. Keep it on 6.1 and 6.6.
+On 6.1 and 6.6 the endpoint also needs `cfg-clk-range = <28>`, the 24 MHz
+CFGCLK encoding NXP's own camera nodes use.
 
 ## Not possible on i.MX91
 

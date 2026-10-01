@@ -1,8 +1,8 @@
-# Arducam IMX519 16 MP autofocus camera on NXP i.MX93
+# Arducam IMX519 16 MP autofocus camera on NXP FRDM-i.MX93
 
-A Linux camera bring-up project: a V4L2 sensor driver, device trees, and
+A Linux camera bring-up project: a V4L2 sensor driver, a device tree, and
 capture tooling that let a **Sony IMX519** 16 MP autofocus module work on an
-**NXP i.MX93** board, which has no vendor support for this sensor.
+**NXP FRDM-i.MX93** board, which has no vendor support for this sensor.
 
 It doubles as a worked example of Embedded Linux camera work — V4L2
 sub-devices, the media controller graph, device-tree integration, kernel
@@ -16,7 +16,7 @@ IMX519  ──2-lane CSI-2, RAW10──▶  i.MX93 DWC CSI-2  ──▶  ISI  �
 | | |
 | --- | --- |
 | Camera | Arducam 16 MP autofocus (Sony IMX519 + AK7375 VCM), SKU B0371 |
-| Boards | FRDM-i.MX93 and i.MX93 11x11 EVK |
+| Board | FRDM-i.MX93 (`imx93-11x11-lpddr4x-frdm`) |
 | Kernel | NXP `linux-imx`, tested on 6.18.2; version-guarded for 6.1–6.18 |
 | Output | Bayer RAW10 (`RG10`) at 1920×1080 or 1280×720 |
 
@@ -25,18 +25,18 @@ IMX519  ──2-lane CSI-2, RAW10──▶  i.MX93 DWC CSI-2  ──▶  ISI  �
 ## 1. Goal
 
 Capture stills and video from the Arducam 16 MP autofocus camera on an
-i.MX93 board running NXP's `linux-imx` BSP, with working manual focus, using
-only standard V4L2 userspace (`media-ctl`, `v4l2-ctl`).
+FRDM-i.MX93 board running NXP's `linux-imx` BSP, with working manual focus,
+using only standard V4L2 userspace (`media-ctl`, `v4l2-ctl`).
 
 ## 2. Problem statement
 
 Nothing about this camera works out of the box, for three independent
 reasons.
 
-**The board's device tree describes a different camera.** Both the FRDM and
-the EVK BSP ship a device tree for NXP's **AP1302** ISP module on the CSI
-connector. The IMX519 is not in it, so Linux never looks for the sensor and
-no amount of userspace configuration helps.
+**The board's device tree describes a different camera.** The FRDM BSP ships
+a device tree for NXP's **AP1302** ISP module on the CSI connector. The
+IMX519 is not in it, so Linux never looks for the sensor and no amount of
+userspace configuration helps.
 
 **The only existing IMX519 driver is written for Raspberry Pi.** The driver
 in the Raspberry Pi kernel (`drivers/media/i2c/imx519.c`) assumes the Pi's
@@ -84,8 +84,9 @@ the stock FRDM tree and then:
 - declares the camera reset line, and
 - gives the sensor its own always-on regulators (see step 6).
 
-[`dts/imx93-11x11-evk-imx519.dts`](dts/imx93-11x11-evk-imx519.dts) does the
-same for the 11x11 EVK, with an lf-6.6 variant for older BSPs.
+`dts/` also holds equivalents for the i.MX93 11x11 EVK, kept for reference
+only. They have never been on hardware — everything below was done on an
+FRDM board.
 
 ### Step 3 — Make it build inside `linux-imx`
 
@@ -148,7 +149,7 @@ hardware. Details in [docs/capture.md](docs/capture.md).
 | `modprobe`: `Invalid argument`, `disagrees about version of symbol` | Module built against a different kernel ABI | Rebuild and install `Image` + modules together |
 | `modprobe` succeeds, no probe, no dmesg | Deferred probe behind an I2C expander on the absent AP1302 module | Own always-on regulators in the DTS |
 | `MEDIA_BUS_FMT_SENSOR_DATA undeclared` | Raspberry Pi driver still in the tree | Use the single-pad port; the install script now rejects the old file |
-| `Label or path isi_0 not found` | lf-6.6 EVK device tree built against a 6.18 kernel | Install script picks the matching variant and drops unused dtb targets |
+| `Label or path isi_0 not found` | An lf-6.6 device tree built against a 6.18 kernel | Install script drops dtb targets that cannot build |
 | `udhcpc` never gets a lease | Direct laptop-to-board cable, no DHCP server | Static IPs on both ends |
 | Graph still shows `ap1302` | U-Boot loaded the stock dtb | Set `fdtfile`, or overwrite the filename U-Boot already loads |
 
@@ -270,9 +271,8 @@ saveenv
 boot
 ```
 
-Use `imx93-11x11-evk-imx519.dtb` on the EVK. Keep a copy of the original
-`Image` on the boot partition — if a new kernel does not boot, U-Boot can
-only load a rescue image from there.
+Keep a copy of the original `Image` on the boot partition — if a new kernel
+does not boot, U-Boot can only load a rescue image from there.
 
 Step-by-step, including SD-card and `scp` routes:
 [docs/build-and-flash.md](docs/build-and-flash.md).
@@ -312,7 +312,7 @@ kernel/imx519.c         V4L2 sub-device driver for the sensor (GPL-2.0)
 kernel/Kconfig          CONFIG_VIDEO_IMX519
 kernel/Makefile         out-of-tree module build
 configs/imx519.cfg      kernel config fragment for merge_config.sh
-dts/                    FRDM and EVK device trees (+ lf-6.6 EVK variant)
+dts/                    FRDM board device tree (plus untested EVK variants)
 scripts/                install, ABI check, pipeline, capture, focus
 userspace/              Python demosaic and capture tools
 yocto/meta-imx519/      optional Yocto layer

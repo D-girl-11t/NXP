@@ -97,13 +97,13 @@ What changes inside `linux-imx`:
 | `drivers/media/i2c/Kconfig` | sources the above |
 | `drivers/media/i2c/Makefile` | builds `imx519.o` |
 | `arch/arm64/boot/dts/freescale/imx93-11x11-frdm-imx519.dts` | FRDM board tree |
-| `arch/arm64/boot/dts/freescale/imx93-11x11-evk-imx519.dts` | EVK board tree, matched to the BSP |
 | `arch/arm64/boot/dts/freescale/Makefile` | builds the new dtbs |
 | `arch/arm64/configs/imx519.config` | the config fragment |
 
-The script picks the EVK device-tree variant that matches your BSP (lf-6.6
-uses `isi_0`, 6.12 and later use `mipi_csi_in`) and removes any dtb target
-that cannot build, so `make dtbs` does not abort on an unused board file.
+`dts/` also contains device trees for the 11x11 EVK. They are reference
+copies and have never been tested on hardware; the script only installs one
+if the kernel tree has a matching EVK board file, and it removes any dtb
+target that cannot build so `make dtbs` does not abort on an unused file.
 
 ## 5. Choose a kernel config
 
@@ -265,8 +265,7 @@ saveenv
 boot
 ```
 
-Use `imx93-11x11-evk-imx519.dtb` on the EVK. Some NXP images use `fdt_file`
-instead:
+Some NXP images use `fdt_file` instead:
 
 ```
 printenv fdtfile fdt_file

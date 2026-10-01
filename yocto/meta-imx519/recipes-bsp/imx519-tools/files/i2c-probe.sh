@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0
 # Probe I2C for IMX519 (0x1a) and AK7375 VCM (0x0c) on the CSI bus.
-# On i.MX93 EVK/FRDM the camera I2C is typically LPI2C3 -> /dev/i2c-2.
+# On FRDM-i.MX93 the camera I2C is LPI2C3 -> /dev/i2c-2.
 
 set -eu
 

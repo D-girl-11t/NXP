@@ -2,6 +2,9 @@
 /*
  * i.MX93 11x11 EVK + Arducam IMX519, linux-imx lf-6.12 / lf-6.18.
  *
+ * REFERENCE ONLY, NEVER TESTED. This project was brought up on FRDM-i.MX93;
+ * see imx93-11x11-frdm-imx519.dts for the tree that is known to work.
+ *
  * Replaces AP1302 on the MiniSAS CSI connector (J801). Needs an
  * RPi-CAM-to-MiniSAS adapter; the socket is not a Pi camera socket.
  *

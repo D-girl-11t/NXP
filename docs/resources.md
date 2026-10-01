@@ -13,14 +13,13 @@ Everything this port was built from, grouped by what you would reach for it.
 | [i.MX Yocto Project User's Guide](https://www.nxp.com/docs/en/user-guide/IMX_YOCTO_PROJECT_USERS_GUIDE.pdf) | Needed only for the [Yocto route](yocto.md). |
 | [AN14012 — i.MX 93 to i.MX 91 Design Compatibility Guide](https://www.nxp.com/docs/en/application-note/AN14012.pdf) | §3.2 is the authority on i.MX91 having no MIPI CSI-2. |
 
-## Boards
+## Board
 
 | Resource | Why |
 | --- | --- |
 | [FRDM-IMX93 product page](https://www.nxp.com/design/design-center/development-boards-and-designs/FRDM-IMX93) | Design files (schematic, BOM, Gerbers) and the quick-start guide. |
 | [UM12181 — FRDM-IMX93 Board User Manual](https://www.nxp.com/webapp/Download?colCode=UM12181) | Connector pinouts (tables 20 and 21), board power rails, and the I/O expander map. Note that §3.3.1 of Rev 2.0 names P7 for the camera while §2.14 and the pinout tables make P6 the only possibility; the tables are correct. |
-| [MCIMX93-EVK Board User Manual](https://www.nxp.com/docs/en/user-manual/IMX93EVKHUG.pdf) | The 11x11 EVK's CSI connector (J801) and the AR0144 module it ships with. |
-| [i.MX 93 EVK product page](https://www.nxp.com/design/design-center/development-boards-and-designs/MCIMX93-EVK) | Board design files. |
+| [Getting Started with FRDM-IMX93](https://www.nxp.com/document/guide/getting-started-with-frdm-imx93:GS-FRDM-IMX93) | Flashing the stock BSP image and the boot-switch settings. |
 
 ## Camera module
 

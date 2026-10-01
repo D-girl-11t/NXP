@@ -47,8 +47,6 @@ IMAGE_INSTALL:append = " imx519-tools"
 KERNEL_DEVICETREE:append = " freescale/imx93-11x11-frdm-imx519.dtb"
 ```
 
-Use `freescale/imx93-11x11-evk-imx519.dtb` for the EVK.
-
 ## Build
 
 ```bash

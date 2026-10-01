@@ -7,6 +7,9 @@
 #
 # This copy of kernel/imx519.c must be the i.MX93 6.18 port (single IMAGE_PAD,
 # no MEDIA_BUS_FMT_SENSOR_DATA). An old Raspberry Pi / Unicam tree will be rejected.
+#
+# FRDM-i.MX93 is the tested target. The EVK device trees are reference copies
+# and are only installed if the kernel tree actually has an EVK board file.
 
 set -eu
 
