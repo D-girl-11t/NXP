@@ -102,6 +102,31 @@ On the 11x11 EVK this port reuses the AP1302 reset GPIO
 If `i2cdetect` never shows `0x1a`, the adapter is not passing I2C or XCLR is
 held in reset — fix hardware before debugging the driver.
 
+## Not possible on i.MX91
+
+i.MX91 **removes the MIPI CSI-2 interface entirely**. Per NXP AN14012
+(*i.MX 93 to i.MX 91 Design Compatibility Guide*, §3.2), i.MX91 drops MIPI
+CSI, MIPI DSI and LVDS, keeping only the 8-bit parallel YUV/RGB camera and
+24-bit parallel RGB display.
+
+| | i.MX93 | i.MX91 |
+| --- | --- | --- |
+| MIPI CSI-2 | 2-lane + D-PHY | **removed** |
+| Parallel camera | 8-bit YUV/RGB | 8-bit YUV/RGB |
+| ISI | 2K, 200 Mpixel/s | same |
+
+Upstream confirms it in the driver: the i.MX91 ISI "implements one channel and
+one camera input which only can be connected to parallel camera input", so
+there is no camera mux to switch between CSI-2 and parallel as on i.MX93.
+
+FRDM-IMX91 therefore has no FPC camera socket; its camera pins are on the
+40-pin EXPI header (P11).
+
+The IMX519 is CSI-2 only — RAW10 over two differential lanes, no parallel
+output mode. It cannot be attached to i.MX91 without an external CSI-2-to-
+parallel bridge on a custom board. For i.MX91, use a parallel/DVP sensor
+(OV5640 in parallel mode, MT9M114, …) or a USB UVC camera.
+
 ## linux-imx BSP versions
 
 | BSP | CSI driver | `hs-clk-range` in DT |
