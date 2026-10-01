@@ -150,16 +150,15 @@ An lf-6.6 device tree is being built against a 6.12-or-later kernel. The
 graph node names changed: lf-6.6 uses `isi_0` and `cameradev`, newer BSPs use
 `mipi_csi_in` / `mipi_csi_out` / `isi_in`.
 
-The install script drops dtb targets that cannot build, so this should not
-happen with a current checkout. If you hit it with an older copy, remove the
-unused target:
+The source is almost always an 11x11 EVK overlay left behind by an older
+checkout of this project, which no longer ships one. Re-running
+`scripts/install-into-kernel.sh` removes it, or do it by hand:
 
 ```bash
+rm -f ~/linux-imx/arch/arm64/boot/dts/freescale/imx93-11x11-evk-imx519.dts
 sed -i '/imx93-11x11-evk-imx519.dtb/d' \
     ~/linux-imx/arch/arm64/boot/dts/freescale/Makefile
 ```
-
-FRDM does not need that dtb at all.
 
 ### Duplicate dtb target
 

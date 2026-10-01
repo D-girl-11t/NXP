@@ -45,7 +45,7 @@ Inspect the graph by hand with `media-ctl -d /dev/media0 -p`.
 ./scripts/i2c-probe.sh 2
 ```
 
-Bus 2 is LPI2C3 on both boards. Expect `0x1a` for the sensor and `0x0c` for
+Bus 2 is LPI2C3, the camera bus. Expect `0x1a` for the sensor and `0x0c` for
 the focus coil. Both commonly read `--` until `imx519.ko` probes and releases
 XCLR, and `UU` once a driver has claimed the address — so scan **after**
 loading the module.

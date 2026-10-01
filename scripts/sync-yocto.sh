@@ -14,7 +14,6 @@ mkdir -p "$K" "$T"
 cp -v "$ROOT/kernel/imx519.c" "$K/imx519.c"
 cp -v "$ROOT/kernel/Kconfig" "$K/Kconfig.imx519"
 cp -v "$ROOT/configs/imx519.cfg" "$K/imx519.cfg"
-cp -v "$ROOT/dts/imx93-11x11-evk-imx519.dts" "$K/imx93-11x11-evk-imx519.dts"
 cp -v "$ROOT/dts/imx93-11x11-frdm-imx519.dts" "$K/imx93-11x11-frdm-imx519.dts"
 cp -v "$ROOT/userspace/imx519_capture.py" "$T/"
 

@@ -100,10 +100,10 @@ What changes inside `linux-imx`:
 | `arch/arm64/boot/dts/freescale/Makefile` | builds the new dtbs |
 | `arch/arm64/configs/imx519.config` | the config fragment |
 
-`dts/` also contains device trees for the 11x11 EVK. They are reference
-copies and have never been tested on hardware; the script only installs one
-if the kernel tree has a matching EVK board file, and it removes any dtb
-target that cannot build so `make dtbs` does not abort on an unused file.
+The script fails early if the tree has no `imx93-11x11-frdm.dts`, which means
+you cloned a BSP older than lf-6.12. It also deletes the 11x11 EVK overlay
+that earlier versions of this project installed, so a kernel tree patched by
+an older checkout does not keep a dtb target that cannot build.
 
 ## 5. Choose a kernel config
 

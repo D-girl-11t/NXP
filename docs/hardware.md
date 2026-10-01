@@ -2,7 +2,7 @@
 
 What the SoC can and cannot do with this sensor, and how the module is
 wired. This is the background for the design choices in
-[driver.md](driver.md) and the device trees in [`../dts`](../dts).
+[driver.md](driver.md) and the device tree in [`../dts`](../dts).
 
 ## Camera path
 

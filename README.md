@@ -84,10 +84,6 @@ the stock FRDM tree and then:
 - declares the camera reset line, and
 - gives the sensor its own always-on regulators (see step 6).
 
-`dts/` also holds equivalents for the i.MX93 11x11 EVK, kept for reference
-only. They have never been on hardware — everything below was done on an
-FRDM board.
-
 ### Step 3 — Make it build inside `linux-imx`
 
 [`scripts/install-into-kernel.sh`](scripts/install-into-kernel.sh) copies the
@@ -149,7 +145,7 @@ hardware. Details in [docs/capture.md](docs/capture.md).
 | `modprobe`: `Invalid argument`, `disagrees about version of symbol` | Module built against a different kernel ABI | Rebuild and install `Image` + modules together |
 | `modprobe` succeeds, no probe, no dmesg | Deferred probe behind an I2C expander on the absent AP1302 module | Own always-on regulators in the DTS |
 | `MEDIA_BUS_FMT_SENSOR_DATA undeclared` | Raspberry Pi driver still in the tree | Use the single-pad port; the install script now rejects the old file |
-| `Label or path isi_0 not found` | An lf-6.6 device tree built against a 6.18 kernel | Install script drops dtb targets that cannot build |
+| `Label or path isi_0 not found` | An lf-6.6 device tree built against a 6.18 kernel | Only the FRDM tree ships now; the install script deletes older overlays |
 | `udhcpc` never gets a lease | Direct laptop-to-board cable, no DHCP server | Static IPs on both ends |
 | Graph still shows `ap1302` | U-Boot loaded the stock dtb | Set `fdtfile`, or overwrite the filename U-Boot already loads |
 
@@ -312,7 +308,7 @@ kernel/imx519.c         V4L2 sub-device driver for the sensor (GPL-2.0)
 kernel/Kconfig          CONFIG_VIDEO_IMX519
 kernel/Makefile         out-of-tree module build
 configs/imx519.cfg      kernel config fragment for merge_config.sh
-dts/                    FRDM board device tree (plus untested EVK variants)
+dts/                    FRDM board device tree
 scripts/                install, ABI check, pipeline, capture, focus
 userspace/              Python demosaic and capture tools
 yocto/meta-imx519/      optional Yocto layer

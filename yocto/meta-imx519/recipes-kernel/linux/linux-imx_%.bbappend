@@ -4,7 +4,6 @@ SRC_URI:append = " \
     file://imx519.c \
     file://Kconfig.imx519 \
     file://imx519.cfg \
-    file://imx93-11x11-evk-imx519.dts \
     file://imx93-11x11-frdm-imx519.dts \
 "
 
@@ -19,20 +18,11 @@ do_configure:prepend() {
         echo 'obj-$(CONFIG_VIDEO_IMX519) += imx519.o' >> ${S}/drivers/media/i2c/Makefile
     fi
 
-    install -m 0644 ${WORKDIR}/imx93-11x11-evk-imx519.dts \
-        ${S}/arch/arm64/boot/dts/freescale/imx93-11x11-evk-imx519.dts
-    if ! grep -q 'imx93-11x11-evk-imx519.dtb' ${S}/arch/arm64/boot/dts/freescale/Makefile; then
-        echo 'dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-imx519.dtb' \
+    install -m 0644 ${WORKDIR}/imx93-11x11-frdm-imx519.dts \
+        ${S}/arch/arm64/boot/dts/freescale/imx93-11x11-frdm-imx519.dts
+    if ! grep -q 'imx93-11x11-frdm-imx519.dtb' ${S}/arch/arm64/boot/dts/freescale/Makefile; then
+        echo 'dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-frdm-imx519.dtb' \
             >> ${S}/arch/arm64/boot/dts/freescale/Makefile
-    fi
-
-    if [ -f ${WORKDIR}/imx93-11x11-frdm-imx519.dts ]; then
-        install -m 0644 ${WORKDIR}/imx93-11x11-frdm-imx519.dts \
-            ${S}/arch/arm64/boot/dts/freescale/imx93-11x11-frdm-imx519.dts
-        if ! grep -q 'imx93-11x11-frdm-imx519.dtb' ${S}/arch/arm64/boot/dts/freescale/Makefile; then
-            echo 'dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-frdm-imx519.dtb' \
-                >> ${S}/arch/arm64/boot/dts/freescale/Makefile
-        fi
     fi
 }
 

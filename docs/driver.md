@@ -147,7 +147,7 @@ required properties are:
 | endpoint `link-frequencies` | `408000000` |
 | `lens-focus` | phandle to the AK7375 node |
 
-Worked examples for both boards are in [`../dts`](../dts). Note that the
+A worked example is in [`../dts`](../dts). Note that the
 supplies must not be borrowed from the stock board's camera rails; see
 [the deferred-probe problem](troubleshooting.md#modprobe-imx519-succeeds-but-nothing-probes).
 
