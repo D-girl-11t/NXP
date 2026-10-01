@@ -1,4 +1,8 @@
-# Add to arch/arm64/boot/dts/freescale/Makefile next to the other i.MX93 dtbs:
+# Reference only. scripts/install-into-kernel.sh adds these lines for you,
+# picking the device trees that match the BSP in the target kernel tree.
+#
+# To do it by hand, append to arch/arm64/boot/dts/freescale/Makefile next to
+# the other i.MX93 entries, keeping only the board you actually have:
 
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-imx519.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-frdm-imx519.dtb

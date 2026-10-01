@@ -1,4 +1,5 @@
-# Drop this line into drivers/media/i2c/Makefile when building in-tree:
-# obj-$(CONFIG_VIDEO_IMX519) += imx519.o
+# Reference only. scripts/install-into-kernel.sh appends this for you.
+#
+# To do it by hand, add to drivers/media/i2c/Makefile:
 
 obj-$(CONFIG_VIDEO_IMX519) += imx519.o

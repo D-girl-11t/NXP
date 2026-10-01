@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * i.MX93 11x11 EVK + Arducam IMX519 16MP autofocus (MIPI CSI-2).
+ * i.MX93 11x11 EVK + Arducam IMX519, linux-imx lf-6.12 / lf-6.18.
  *
- * Replaces the stock AP1302 ISP camera on the MiniSAS CSI connector.
- * Use an RPi-CAM to MiniSAS adapter (NXP XRPi-CAM-MiniSAS or equivalent).
+ * Replaces AP1302 on the MiniSAS CSI connector (J801). Needs an
+ * RPi-CAM-to-MiniSAS adapter; the socket is not a Pi camera socket.
  *
- * Build with linux-imx:
- *   dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-imx519.dtb
+ * For lf-6.1 / lf-6.6, use imx93-11x11-evk-imx519-lf66.dts instead: the
+ * CSI graph labels differ (isi_0 / cameradev rather than mipi_csi_in).
  *
  * Boot:
  *   setenv fdtfile imx93-11x11-evk-imx519.dtb
@@ -19,21 +19,22 @@
 		     "fsl,imx93";
 
 	/*
-	 * Arducam B0371 has an onboard 24 MHz crystal. A dummy clock is
-	 * enough for the driver; route CCM_CLKO to the connector only if
-	 * your adapter actually feeds INCK from the SoC.
+	 * The Arducam B0371 regulates its own rails from the 3.3 V the camera
+	 * connector supplies, so model all three as always-on fixed regulators.
+	 *
+	 * Do not reuse the stock reg_avdd_2v8 / reg_vddio_1v8: those are gated
+	 * by an ADP5585 I/O expander that belongs to NXP's camera module. With
+	 * that module absent the expander never probes and the sensor is stuck
+	 * in deferred probe ("supplier regulator-vddo not ready").
 	 */
-	clk_imx519_24m: clock-imx519-24m {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <24000000>;
-		clock-output-names = "imx519_xclk";
+	reg_imx519_vana: regulator-imx519-vana {
+		compatible = "regulator-fixed";
+		regulator-name = "imx519_vana";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		regulator-always-on;
 	};
 
-	/*
-	 * Digital core (1.05 V) is generated on the camera module.
-	 * Keep a dummy regulator so the driver can probe.
-	 */
 	reg_imx519_vdig: regulator-imx519-vdig {
 		compatible = "regulator-fixed";
 		regulator-name = "imx519_vdig";
@@ -41,40 +42,21 @@
 		regulator-max-microvolt = <1050000>;
 		regulator-always-on;
 	};
-};
 
-&isi_0 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
+	reg_imx519_vddl: regulator-imx519-vddl {
+		compatible = "regulator-fixed";
+		regulator-name = "imx519_vddl";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
 	};
 };
 
-&cameradev {
-	status = "okay";
-};
-
-/*
- * 408 MHz CSI-2 clock lane => 816 Mbps/lane DDR.
- * i.MX93 DPHY HSFREQRANGE table: 800 Mbps = 0x09, 850 Mbps = 0x19.
- * cfg-clk-range = 28 matches a 24 MHz CFGCLK (same as the EVK AP1302 node).
- *
- * linux-imx lf-6.12+ programs HSFREQRANGE from V4L2_CID_LINK_FREQ and
- * ignores these two properties. Leave them for lf-6.1 / lf-6.6.
- */
-&mipi_csi {
-	status = "okay";
-
-	port {
-		mipi_csi_ep: endpoint {
-			remote-endpoint = <&imx519_ep>;
-			data-lanes = <2>;
-			cfg-clk-range = <28>;
-			hs-clk-range = <0x19>;
-			bus-type = <4>; /* MEDIA_BUS_TYPE_CSI2_DPHY */
-		};
-	};
+/* 6.12+ CSI graph: imx519 -> mipi_csi_in -> mipi_csi_out -> isi_in */
+&mipi_csi_in {
+	remote-endpoint = <&imx519_ep>;
+	data-lanes = <1 2>;
+	clock-lanes = <0>;
 };
 
 &lpi2c3 {
@@ -85,15 +67,15 @@
 		reg = <0x1a>;
 		status = "okay";
 
-		clocks = <&clk_imx519_24m>;
+		clocks = <&clk IMX93_CLK_24M>;
 		clock-names = "xclk";
 
-		/* MiniSAS camera reset, same GPIO the EVK used for AP1302. */
-		reset-gpios = <&adp5585gpio 0 GPIO_ACTIVE_LOW>;
+		/* XCLR, on the same expander line the AP1302 used for reset. */
+		reset-gpios = <&adp5585 0 GPIO_ACTIVE_LOW>;
 
-		VANA-supply = <&reg_avdd_2v8>;	/* 2.8 V analog / module 3.3 V rail */
+		VANA-supply = <&reg_imx519_vana>;
 		VDIG-supply = <&reg_imx519_vdig>;
-		VDDL-supply = <&reg_vddio_1v8>;	/* 1.8 V I/O */
+		VDDL-supply = <&reg_imx519_vddl>;
 
 		rotation = <0>;
 		orientation = <2>;
@@ -101,7 +83,7 @@
 
 		port {
 			imx519_ep: endpoint {
-				remote-endpoint = <&mipi_csi_ep>;
+				remote-endpoint = <&mipi_csi_in>;
 				clock-lanes = <0>;
 				data-lanes = <1 2>;
 				clock-noncontinuous;
@@ -110,11 +92,10 @@
 		};
 	};
 
-	/* Arducam 16MP AF voice-coil (AK7375) on the same CSI I2C bus. */
 	ak7375: ak7375@c {
 		compatible = "asahi-kasei,ak7375";
 		reg = <0x0c>;
 		status = "okay";
-		vdd-supply = <&reg_avdd_2v8>;
+		vdd-supply = <&reg_imx519_vana>;
 	};
 };

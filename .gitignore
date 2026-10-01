@@ -1,17 +1,29 @@
-.o
-.ko
-.mod
-.mod.c
-.cmd
+# Kernel build artefacts
+*.o
+*.ko
+*.mod
+*.mod.c
+*.cmd
+*.order
+*.symvers
 .tmp_versions/
 Module.symvers
 modules.order
+
+# Device tree blobs
 *.dtb
 *.dtbo
+
+# Python
 __pycache__/
 *.pyc
+
+# Captures and archives
 *.raw
 *.png
+*.jpg
 *.mp4
 *.tar.gz
+
+# Scratch
 agent-tools/
