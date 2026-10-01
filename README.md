@@ -22,6 +22,8 @@ that driver, adds i.MX93 device trees, and ships capture helpers.
 There is **no hardware ISP** on i.MX93. Captures are Bayer RAW. Colour images
 come from the demosaic tool or ffmpeg, not from `/dev/video0` as YUYV.
 
+**What we did, step by step, on real hardware:** [BRINGUP-LOG.md](BRINGUP-LOG.md) — goal, every problem hit, and how each was fixed.
+
 **Hands-on walkthrough (laptop + board):** [docs/bringup-steps.md](docs/bringup-steps.md)
 
 **Windows PC:** [docs/windows.md](docs/windows.md) — PuTTY on COMx + WSL2 to build the kernel. You cannot compile linux-imx in PowerShell.
