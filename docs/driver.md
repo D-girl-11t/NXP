@@ -139,7 +139,7 @@ required properties are:
 | `compatible` | `sony,imx519` |
 | `reg` | `0x1a` |
 | `clocks` / `clock-names` | 24 MHz `xclk` |
-| `reset-gpios` | XCLR, active low |
+| `reset-gpios` | Module enable; the driver drives it logical high to power up |
 | `VANA-supply` | 2.8 V analogue |
 | `VDIG-supply` | 1.05 V digital |
 | `VDDL-supply` | 1.8 V I/O |
@@ -147,9 +147,16 @@ required properties are:
 | endpoint `link-frequencies` | `408000000` |
 | `lens-focus` | phandle to the AK7375 node |
 
-A worked example is in [`../dts`](../dts). Note that the
-supplies must not be borrowed from the stock board's camera rails; see
-[the deferred-probe problem](troubleshooting.md#modprobe-imx519-succeeds-but-nothing-probes).
+A worked example is in [`../dts`](../dts). Two details there are easy to get
+wrong:
+
+- The supplies must not be borrowed from the stock board's camera rails; see
+  [the deferred-probe problem](troubleshooting.md#modprobe-imx519-succeeds-but-nothing-probes).
+- `reset-gpios` is named after the sensor's XCLR pin, but on a
+  Raspberry-Pi-style module it reaches the board as an active-high enable, so
+  the flag is `GPIO_ACTIVE_HIGH`. The driver requests it `GPIOD_OUT_HIGH` and
+  drives logical `1` in `imx519_power_on()`; see
+  [hardware.md](hardware.md#pin-17-is-an-enable-not-a-reset).
 
 ## Building it
 

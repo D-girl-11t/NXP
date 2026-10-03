@@ -191,21 +191,38 @@ dmesg | grep -iE 'imx519|i2c|csi|isi'
 
 | Message | Likely cause |
 | --- | --- |
-| `failed to read chip id ... error -5` | No I2C reply: XCLR still asserted, no 24 MHz master clock, wrong bus, or a cable/adapter fault |
+| `failed to read chip id ... error -5` | No I2C reply: the module's enable pin is inverted or still deasserted, no 24 MHz clock, wrong bus, or a cable/adapter fault |
 | `chip id mismatch` | Not an IMX519, or bus noise |
 | `xclk frequency not supported` | The clock node is not 24 MHz |
 | `link-frequency property not found` | The device-tree endpoint has no `link-frequencies` |
 | `only 2 data lanes` | `data-lanes` is not `<1 2>` on the sensor endpoint |
 
-`-5` is `EIO`. By the time the driver reports it, every software layer has
-already done its job: regulators enabled, clock running, reset released,
-and a register read attempted. The remaining variables are the connector,
-the adapter, and the flex cable.
+`-5` is `EIO`: the sensor did not acknowledge its own address. Check these in
+order.
 
-Check that the module is on the CSI connector and not the DSI one — on
-FRDM-i.MX93 the two 22-pin sockets look identical, and only the CSI socket
-carries the master clock and camera reset. See
-[hardware.md](hardware.md#connectors).
+**1. Enable polarity.** The most common cause, and the one that bit this
+project. P6 pin 17 is an *active-high* enable on a Raspberry-Pi-style module,
+even though NXP's schematic calls it `CSI_nRST`. The device tree must say
+`GPIO_ACTIVE_HIGH`, otherwise the module's regulators and its 24 MHz
+oscillator never turn on. See
+[hardware.md](hardware.md#pin-17-is-an-enable-not-a-reset).
+
+You can confirm this without rebuilding anything. Find the PCAL6524 — it is
+the 24-line expander — and drive line 22 high by hand, then look for the
+sensor:
+
+```bash
+gpiodetect                     # pick the chip reporting 24 lines
+gpioset -m signal gpiochipN 22=1 &
+i2cdetect -y 2                 # 0x1a should now appear
+```
+
+**2. Wrong connector.** On FRDM-i.MX93 the two 22-pin sockets look identical
+and only P6 faces the CSI-2 receiver. See
+[hardware.md](hardware.md#which-socket).
+
+**3. Cable and adapter.** The flex must be seated with the contacts facing
+the right way at both ends, and the adapter must be a CSI one.
 
 Note that `2-001a` appearing in `/sys/bus/i2c/devices/` only means the
 device-tree node exists, not that the sensor replied. And `UU` at `0x50` or

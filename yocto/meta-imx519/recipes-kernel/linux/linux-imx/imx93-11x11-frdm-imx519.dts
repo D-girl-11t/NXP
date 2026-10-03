@@ -69,8 +69,16 @@
 		clocks = <&clk IMX93_CLK_24M>;
 		clock-names = "xclk";
 
-		/* CSI_nRST on P6 pin 17 = PCAL6524 P2_6 = line 22. */
-		reset-gpios = <&pcal6524 22 GPIO_ACTIVE_LOW>;
+		/*
+		 * P6 pin 17 = PCAL6524 P2_6 = line 22. NXP names this signal
+		 * CSI_nRST because their AP1302 module uses it as an
+		 * active-low reset, but on a Raspberry-Pi-standard module it
+		 * is CAM_IO0: an active-high enable that gates the module's
+		 * own LDOs and its 24 MHz oscillator. The Arducam B0371
+		 * follows the Pi standard, so the driver's logical "enable"
+		 * has to reach the pin as a physical high.
+		 */
+		reset-gpios = <&pcal6524 22 GPIO_ACTIVE_HIGH>;
 
 		VANA-supply = <&reg_imx519_vana>;
 		VDIG-supply = <&reg_imx519_vdig>;

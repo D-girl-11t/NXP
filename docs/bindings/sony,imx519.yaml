@@ -46,8 +46,11 @@ properties:
 
   reset-gpios:
     description: |-
-      Reference to the GPIO connected to the XCLR pin, if any. Must be
-      released (driven high) only after all supplies and INCK are applied.
+      Reference to the GPIO that brings the sensor out of reset, if any. The
+      driver drives it logical high to enable the sensor and logical low to
+      disable it, so a board where the pin is an active-high module enable
+      (the Raspberry Pi camera connector's CAM_IO0, for instance) must use
+      GPIO_ACTIVE_HIGH rather than GPIO_ACTIVE_LOW.
     maxItems: 1
 
   lens-focus:
@@ -116,7 +119,7 @@ examples:
             clocks = <&imx519_clk>;
             clock-names = "xclk";
 
-            reset-gpios = <&gpio_expander 22 GPIO_ACTIVE_LOW>;
+            reset-gpios = <&gpio_expander 22 GPIO_ACTIVE_HIGH>;
 
             VANA-supply = <&imx519_vana>;   /* 2.8 V */
             VDIG-supply = <&imx519_vdig>;   /* 1.05 V */

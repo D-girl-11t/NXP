@@ -110,15 +110,30 @@ on pins 20 and 21, but two pins differ and they are the two that matter:
 | 17 | `CSI_nRST` — PCAL6524 **P2_6** | `CTP_RST` — PCAL6524 P2_1 |
 | 18 | `CAM_MCLK` (24 MHz from CCM_CLKO3) | `DSI_CTP_nINT` |
 
-Only P6 supplies the 24 MHz master clock and the camera reset line, and only
+Only P6 supplies the 24 MHz master clock and the camera control line, and only
 P6's data pairs face a CSI-2 *receiver*.
 
-PCAL6524 GPIO numbering: `P2_6` is 16 + 6 = **line 22**, which is what the
-FRDM device tree uses:
+### Pin 17 is an enable, not a reset
+
+NXP names P6 pin 17 `CSI_nRST` because their own AP1302 module uses it as an
+active-low reset. The Raspberry Pi 22-pin camera standard, which P6 is
+otherwise pin-for-pin compatible with, calls the same pin `CAM_IO0` and
+defines it as an **active-high enable**. On a Pi-style module it gates the
+module's onboard LDOs *and* its 24 MHz oscillator — which is also why the Pi
+connector carries no master clock from the host at all.
+
+The Arducam B0371 follows the Pi standard, so the polarity in the device tree
+has to be flipped relative to NXP's stock tree. PCAL6524 GPIO numbering puts
+`P2_6` at 16 + 6 = **line 22**:
 
 ```
-reset-gpios = <&pcal6524 22 GPIO_ACTIVE_LOW>;
+reset-gpios = <&pcal6524 22 GPIO_ACTIVE_HIGH>;
 ```
+
+The driver requests this GPIO with `GPIOD_OUT_HIGH` and drives logical `1` in
+`imx519_power_on()`, so `GPIO_ACTIVE_HIGH` is what makes the pin physically
+high and actually powers the module. With `GPIO_ACTIVE_LOW` the module stays
+off and never acknowledges at `0x1a`.
 
 ## BSP differences
 
